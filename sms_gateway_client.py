@@ -48,6 +48,7 @@ class SmsGatewayClient:
             if response.content:
                 return (response.status_code == HTTP_200_OK, response.json())
             response.raise_for_status()
+            return (False, "Unknown failure")
         except Exception as e:
             return (False, e)
 
