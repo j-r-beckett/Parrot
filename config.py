@@ -7,7 +7,7 @@ class AppSettings(BaseSettings):
 
     debug: bool = False
 
-    sms_gateway_addr: str = Field(...)
+    sms_gateway_url: str = Field(...)
     sms_gateway_username: str = Field(...)
     sms_gateway_password: str = Field(...)
 
