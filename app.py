@@ -2,7 +2,6 @@ from litestar import Litestar, get, Request, Response
 from litestar.datastructures import State
 from litestar.di import Provide
 from litestar.status_codes import HTTP_200_OK, HTTP_503_SERVICE_UNAVAILABLE
-from litestar.logging import LoggingConfig
 from config import settings
 from contextlib import asynccontextmanager
 from typing import AsyncGenerator
@@ -17,14 +16,16 @@ async def get_sms_gateway_client(state: State) -> SmsGatewayClient:
     path="/health", dependencies={"sms_gateway_client": Provide(get_sms_gateway_client)}
 )
 async def health(sms_gateway_client: SmsGatewayClient) -> Response:
-    sms_is_healthy, sms_health_info = await sms_gateway_client.health()
+    gateway_health, gateway_health_info = await sms_gateway_client.gateway_health()
+    webhook_health, webhook_health_info = await sms_gateway_client.webhook_health()
 
-    is_healthy = sms_is_healthy
+    is_healthy = gateway_health and webhook_health
 
     return Response(
         content={
             "status": "healthy" if is_healthy else "unhealthy",
-            "sms_gateway_info": str(sms_health_info),
+            "sms_gateway_info": str(gateway_health_info),
+            "webhook_health_info": str(webhook_health_info),
         },
         status_code=HTTP_200_OK if is_healthy else HTTP_503_SERVICE_UNAVAILABLE,
     )
@@ -39,7 +40,9 @@ async def test_sms(request: Request, sms_gateway_client: SmsGatewayClient) -> Re
 
 @asynccontextmanager
 async def lifespan(app: Litestar) -> AsyncGenerator[None, None]:
-    async with SmsGatewayClient(settings) as sms_gateway_client:
+    async with SmsGatewayClient(
+        settings, ["sms:delivered", "sms:sent"]
+    ) as sms_gateway_client:
         app.state.sms_gateway_client = sms_gateway_client
         yield
 
