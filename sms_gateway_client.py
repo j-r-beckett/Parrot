@@ -1,15 +1,16 @@
 from config import AppSettings
 import httpx
-from typing import Tuple, Any, List, Literal
+from typing import Tuple, Any, List, Dict
 from litestar.status_codes import HTTP_200_OK
 from logging import Logger
 import uuid
-
-WebhookEvent = Literal["sms:received", "sms:sent", "sms:delivered", "sms:failed"]
+from schemas import WebhookEventType
 
 
 class SmsGatewayClient:
-    def __init__(self, settings: AppSettings, webhook_events: List[WebhookEvent]):
+    def __init__(
+        self, settings: AppSettings, webhook_events: Dict[WebhookEventType, str]
+    ):
         self.client = None
         self.webhook_events = webhook_events
         self.settings = settings
@@ -54,25 +55,27 @@ class SmsGatewayClient:
 
     async def webhook_health(self) -> Tuple[bool, Any]:
         current_hooks = [event for _, event in await self._active_webhooks()]
-        if not set(current_hooks).issubset(set(self.webhook_events)):
+        if not set(current_hooks).issubset(set(self.webhook_events.keys())):
             return (
                 False,
-                f"Expected webhooks: {self.webhook_events}, actual webhooks: {current_hooks}",
+                f"Expected webhooks: {list(self.webhook_events)}, actual webhooks: {current_hooks}",
             )
         return (True, current_hooks)
 
-    async def _init_webhooks(self, events: List[WebhookEvent]):
+    async def _init_webhooks(self, events: Dict[WebhookEventType, str]):
         # first clear any existing webhooks
         for id, _ in await self._active_webhooks():
             response = await self.client.delete(f"/webhooks/{id}")
             response.raise_for_status()
 
         # then set new ones
-        base_url = "http://127.0.0.1"  # proxied to app
-        for event in events:
+        for event_type, route in events.items():
+            # Proxy port 8081 -> 8000 (this app's port)
+            # With adb, that's `adb reverse tcp:8081 tcp:8000`
+            base_url = f"http://127.0.0.1:8081{route}"
             response = await self.client.post(
                 "/webhooks",
-                json={"url": base_url, "event": event},
+                json={"url": base_url, "event": event_type},
             )
             response.raise_for_status()
 

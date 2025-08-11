@@ -1,4 +1,4 @@
-from litestar import Litestar, get, Request, Response
+from litestar import Litestar, get, Request, Response, post
 from litestar.datastructures import State
 from litestar.di import Provide
 from litestar.status_codes import HTTP_200_OK, HTTP_503_SERVICE_UNAVAILABLE
@@ -6,6 +6,7 @@ from config import settings
 from contextlib import asynccontextmanager
 from typing import AsyncGenerator
 from sms_gateway_client import SmsGatewayClient
+from schemas import SmsDelivered, SmsDeliveredPayload
 
 
 async def get_sms_gateway_client(state: State) -> SmsGatewayClient:
@@ -38,17 +39,23 @@ async def test_sms(request: Request, sms_gateway_client: SmsGatewayClient) -> Re
     return Response(content="sent sms", status_code=HTTP_200_OK)
 
 
+@post("/webhooks/delivered")
+async def webhook(request: Request, data: SmsDelivered) -> Response:
+    request.logger.info("received webhook: %s", data)
+    return Response(content="", status_code=HTTP_200_OK)
+
+
 @asynccontextmanager
 async def lifespan(app: Litestar) -> AsyncGenerator[None, None]:
     async with SmsGatewayClient(
-        settings, ["sms:delivered", "sms:sent"]
+        settings, {"sms:delivered": "/webhooks/delivered"}
     ) as sms_gateway_client:
         app.state.sms_gateway_client = sms_gateway_client
         yield
 
 
 app = Litestar(
-    route_handlers=[health, test_sms],
+    route_handlers=[health, test_sms, webhook],
     lifespan=[lifespan],
     debug=settings.debug,
 )
