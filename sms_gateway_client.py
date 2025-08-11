@@ -32,7 +32,7 @@ class SmsGatewayClient:
     async def __aexit__(self, *args):
         await self.client.aclose()
 
-    async def send_sms(self, msg: str, phone_number: str, logger: Logger):
+    async def send_sms(self, msg: str, phone_number: str, logger: Logger) -> None:
         msg_id = str(uuid.uuid4())
         body = {
             "id": msg_id,
@@ -55,14 +55,14 @@ class SmsGatewayClient:
 
     async def webhook_health(self) -> Tuple[bool, Any]:
         current_hooks = [event for _, event in await self._active_webhooks()]
-        if not set(current_hooks).issubset(set(self.webhook_events.keys())):
+        if not set(set(self.webhook_events.keys())).issubset(current_hooks):
             return (
                 False,
                 f"Expected webhooks: {list(self.webhook_events)}, actual webhooks: {current_hooks}",
             )
         return (True, current_hooks)
 
-    async def _init_webhooks(self, events: Dict[WebhookEventType, str]):
+    async def _init_webhooks(self, events: Dict[WebhookEventType, str]) -> None:
         # first clear any existing webhooks
         for id, _ in await self._active_webhooks():
             response = await self.client.delete(f"/webhooks/{id}")
@@ -82,4 +82,6 @@ class SmsGatewayClient:
     async def _active_webhooks(self) -> List[Tuple[str, str]]:
         response = await self.client.get("/webhooks")
         response.raise_for_status()
-        return [(hook["id"], hook["event"]) for hook in response.json()]
+        return [
+            (hook["id"], hook["event"]) for hook in response.json()
+        ]  # schemas are for suckers

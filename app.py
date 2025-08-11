@@ -6,7 +6,7 @@ from config import settings
 from contextlib import asynccontextmanager
 from typing import AsyncGenerator
 from sms_gateway_client import SmsGatewayClient
-from schemas import SmsDelivered, SmsDeliveredPayload
+from schemas import SmsDelivered
 
 
 async def get_sms_gateway_client(state: State) -> SmsGatewayClient:
