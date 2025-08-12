@@ -27,11 +27,11 @@ async def get_llm_client(state: State) -> LlmClient:
     },
 )
 async def health(
-    sms_gateway_client: SmsGatewayClient, llm_client: LlmClient
+    request: Request, sms_gateway_client: SmsGatewayClient, llm_client: LlmClient
 ) -> Response:
     gateway_health, gateway_health_info = await sms_gateway_client.gateway_health()
     webhook_health, webhook_health_info = await sms_gateway_client.webhook_health()
-    llm_health, llm_health_info = await llm_client.health()
+    llm_health, llm_health_info = await llm_client.health(request.logger)
 
     is_healthy = gateway_health and webhook_health and llm_health
 

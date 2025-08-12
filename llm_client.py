@@ -13,7 +13,7 @@ class LlmClient:
     def __init__(self, config: ClaudeLlmConfig):
         self.config = config
         self._last_result: Optional[Tuple[Optional[Exception], datetime]] = None
-        self._lock = asyncio.Lock()
+        self._last_result_lock = asyncio.Lock()
 
     async def send_message(
         self,
@@ -31,10 +31,10 @@ class LlmClient:
         Returns:
             The generated text response
         """
-        if max_tokens is None:
-            max_tokens = self.config.max_tokens
-
         try:
+            if max_tokens is None:
+                max_tokens = self.config.max_tokens
+
             # Create the async call function with API key in client initialization
             client = AsyncAnthropic(api_key=self.config.api_key)
 
@@ -54,7 +54,7 @@ class LlmClient:
 
             text = response.content
 
-            async with self._lock:
+            async with self._last_result_lock:
                 self._last_result = (None, datetime.now())
 
             logger.info(f"Message sent to LLM ({self.config.short_name})")
@@ -74,49 +74,43 @@ class LlmClient:
 
             return text
         except Exception as e:
-            async with self._lock:
+            async with self._last_result_lock:
                 self._last_result = (e, datetime.now())
             raise
 
-    async def health(self) -> tuple[bool, Any]:
-        async with self._lock:
+    async def health(self, logger: Logger) -> tuple[bool, Any]:
+        async with self._last_result_lock:
             last_result = self._last_result
 
-        # Check if we should use cached result
-        if last_result:
-            exception, timestamp = last_result
-            if exception is None:
-                return (
-                    True,
-                    f"Most recent request at {timestamp.isoformat()} was successful",
-                )
-
-            # Failed request - only retry if > 15 seconds old
-            if datetime.now() - timestamp < timedelta(seconds=15):
-                return (
-                    False,
-                    f"Most recent request at {timestamp.isoformat()} failed: {exception}",
-                )
-
-        # Make a real API call
-        try:
-            # Create a minimal logger for health checks
-            import logging
-
-            health_logger = logging.getLogger("health_check")
-
+        # If necessary, update _last_result by calling send_message
+        if (
+            last_result is None  # No last result
+            or (
+                last_result[0] is not None  # Last was a failure
+                and datetime.now() - last_result[1]
+                > timedelta(seconds=15)  # And it's stale
+            )
+        ):
+            # Make a real API call
             await self.send_message(
                 messages=[Messages.User("Hi")],
-                logger=health_logger,
+                logger=logger,
                 max_tokens=1,
             )
 
-            now = datetime.now()
-            async with self._lock:
-                self._last_result = (None, now)
-            return (True, f"Most recent request at {now.isoformat()} was successful")
-        except Exception as e:
-            now = datetime.now()
-            async with self._lock:
-                self._last_result = (e, now)
-            return (False, f"Most recent request failed: {e}")
+            # self._last_result is updated by the API call; benign race condition
+            async with self._last_result_lock:
+                exception, timestamp = self._last_result
+        else:
+            exception, timestamp = last_result
+
+        if exception is None:
+            return (
+                True,
+                f"Most recent request at {timestamp.isoformat()} was successful",
+            )
+        else:
+            return (
+                False,
+                f"Most recent request at {timestamp.isoformat()} failed: {exception}",
+            )
