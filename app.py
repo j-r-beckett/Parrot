@@ -8,6 +8,7 @@ from typing import AsyncGenerator
 from sms_gateway_client import SmsGatewayClient
 from schemas import SmsDelivered
 from llm_client import LlmClient
+from mirascope.core.base import Messages
 
 
 async def get_sms_gateway_client(state: State) -> SmsGatewayClient:
@@ -61,7 +62,7 @@ async def webhook(request: Request, data: SmsDelivered) -> Response:
 @get("/testllm", dependencies={"llm_client": Provide(get_llm_client)})
 async def test_llm(request: Request, llm_client: LlmClient) -> Response:
     text = await llm_client.send_message(
-        messages=[{"role": "user", "content": "Hello there"}], logger=request.logger
+        messages=[Messages.User("Hello there")], logger=request.logger
     )
     return Response(content=text, status_code=HTTP_200_OK)
 

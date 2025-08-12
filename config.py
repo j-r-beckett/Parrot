@@ -1,16 +1,13 @@
 from pydantic import BaseModel, Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from typing import Literal
-from decimal import Decimal
 
 
 class ClaudeLlmConfig(BaseModel):
     short_name: Literal["claude-sonnet-4"] = "claude-sonnet-4"
-    model_name: str = "claude-sonnet-4-20250514"
+    model_name: str = "claude-sonnet-4-20250514"  # Claude Sonnet 4
     api_key: str
     max_tokens: int = 1024
-    input_token_cost: Decimal = Decimal("0.000003")
-    output_token_cost: Decimal = Decimal("0.000015")
 
 
 class AppSettings(BaseSettings):
@@ -23,7 +20,7 @@ class AppSettings(BaseSettings):
     sms_gateway_password: str = Field(...)
 
     active_llm: Literal["claude-sonnet-4"] = "claude-sonnet-4"
-    
+
     anthropic_api_key: str = Field(...)
 
     @property

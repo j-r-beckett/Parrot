@@ -1,10 +1,12 @@
 from config import ClaudeLlmConfig
-from litellm import acompletion
-from typing import List, Dict, Any, Optional, Tuple
+from mirascope.core.anthropic import AnthropicCallResponse, anthropic_call
+from mirascope.core.base import BaseDynamicConfig, Messages, BaseMessageParam
+from mirascope.core.costs import calculate_cost
+from typing import List, Any, Optional, Tuple
 from logging import Logger
-from decimal import Decimal
 import asyncio
 from datetime import datetime, timedelta
+from anthropic import AsyncAnthropic
 
 
 class LlmClient:
@@ -13,29 +15,16 @@ class LlmClient:
         self._last_result: Optional[Tuple[Optional[Exception], datetime]] = None
         self._lock = asyncio.Lock()
 
-    def _calculate_cost(self, usage) -> Decimal:
-        if not usage:
-            return Decimal("0")
-
-        # LiteLLM provides usage as a dict with prompt_tokens and completion_tokens
-        prompt_tokens = usage.get("prompt_tokens", 0)
-        completion_tokens = usage.get("completion_tokens", 0)
-
-        input_cost = Decimal(str(prompt_tokens)) * self.config.input_token_cost
-        output_cost = Decimal(str(completion_tokens)) * self.config.output_token_cost
-
-        return input_cost + output_cost
-
     async def send_message(
         self,
-        messages: List[Dict[str, str]],
+        messages: List[BaseMessageParam],
         logger: Logger,
         max_tokens: Optional[int] = None,
     ) -> str:
-        """Send messages to LLM using LiteLLM.
+        """Send messages to LLM using Mirascope.
 
         Args:
-            messages: List of message dicts with 'role' and 'content'
+            messages: List of Mirascope message objects
             logger: Logger instance for logging
             max_tokens: Maximum tokens to generate (defaults to self.config.max_tokens)
 
@@ -44,36 +33,44 @@ class LlmClient:
         """
         if max_tokens is None:
             max_tokens = self.config.max_tokens
-            
-        try:
-            response = await acompletion(
-                model=self.config.model_name,
-                messages=messages,
-                max_tokens=max_tokens,
-                stream=False,
-                api_key=self.config.api_key,
-            )
 
-            text = response.choices[0].message.content
+        try:
+            # Create the async call function with API key in client initialization
+            client = AsyncAnthropic(api_key=self.config.api_key)
+
+            @anthropic_call(
+                model=self.config.model_name,
+                call_params={
+                    "max_tokens": max_tokens,
+                },
+                client=client,
+            )
+            async def _make_call() -> BaseDynamicConfig:
+                return {
+                    "messages": messages,
+                }
+
+            response: AnthropicCallResponse = await _make_call()
+
+            text = response.content
 
             async with self._lock:
                 self._last_result = (None, datetime.now())
 
             logger.info(f"Message sent to LLM ({self.config.short_name})")
 
-            # Log usage if available
-            if response.usage:
-                usage_dict = (
-                    response.usage.model_dump()
-                    if hasattr(response.usage, "model_dump")
-                    else response.usage
-                )
-                cost = self._calculate_cost(usage_dict)
-                prompt_tokens = usage_dict.get("prompt_tokens", 0)
-                completion_tokens = usage_dict.get("completion_tokens", 0)
-                logger.info(
-                    f"Usage: {prompt_tokens} prompt tokens, {completion_tokens} completion tokens, cost: ${cost}"
-                )
+            # Log usage
+            cost = calculate_cost(
+                "anthropic", self.config.model_name, response.cost_metadata
+            )
+            cost_str = (
+                f"${cost:.6f}"
+                if cost is not None
+                else "N/A (model not in pricing database)"
+            )
+            logger.info(
+                f"Usage: {response.input_tokens} prompt tokens, {response.output_tokens} completion tokens, cost: {cost_str}"
+            )
 
             return text
         except Exception as e:
@@ -105,14 +102,15 @@ class LlmClient:
         try:
             # Create a minimal logger for health checks
             import logging
+
             health_logger = logging.getLogger("health_check")
-            
+
             await self.send_message(
-                messages=[{"role": "user", "content": "Hi"}],
+                messages=[Messages.User("Hi")],
                 logger=health_logger,
-                max_tokens=1
+                max_tokens=1,
             )
-            
+
             now = datetime.now()
             async with self._lock:
                 self._last_result = (None, now)
