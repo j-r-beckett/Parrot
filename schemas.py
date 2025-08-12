@@ -1,18 +1,23 @@
 from typing import Literal
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict
+from pydantic.alias_generators import to_camel
 
 WebhookEventType = Literal["sms:received", "sms:sent", "sms:delivered", "sms:failed"]
 
 
 class SmsDeliveredPayload(BaseModel):
-    delivered_at: str = Field(alias="deliveredAt")
-    message_id: str = Field(alias="messageId")
-    phone_number: str = Field(alias="phoneNumber")
+    model_config = ConfigDict(alias_generator=to_camel, populate_by_name=True)
+    
+    delivered_at: str
+    message_id: str
+    phone_number: str
 
 
 class SmsDelivered(BaseModel):
-    device_id: str = Field(alias="deviceId")
+    model_config = ConfigDict(alias_generator=to_camel, populate_by_name=True)
+    
+    device_id: str
     event: WebhookEventType
     id: str
     payload: SmsDeliveredPayload
-    webhook_id: str = Field(alias="webhookId")
+    webhook_id: str
