@@ -1,7 +1,16 @@
-from pydantic import Field
+from pydantic import BaseModel, Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from typing import Literal
 from decimal import Decimal
+
+
+class ClaudeLlmConfig(BaseModel):
+    short_name: Literal["claude-sonnet-4"] = "claude-sonnet-4"
+    model_name: str = "claude-sonnet-4-20250514"
+    api_key: str
+    max_tokens: int = 1024
+    input_token_cost: Decimal = Decimal("0.000003")
+    output_token_cost: Decimal = Decimal("0.000015")
 
 
 class AppSettings(BaseSettings):
@@ -13,14 +22,16 @@ class AppSettings(BaseSettings):
     sms_gateway_username: str = Field(...)
     sms_gateway_password: str = Field(...)
 
+    active_llm: Literal["claude-sonnet-4"] = "claude-sonnet-4"
+    
     anthropic_api_key: str = Field(...)
-    anthropic_max_tokens: int = 1024
-    anthropic_model: str = "claude-sonnet-4-20250514"
 
-    input_token_cost: Decimal = Decimal("0.000003")
-    cache_miss_input_token_cost: Decimal = Decimal("0.00000375")
-    cache_hit_input_token_cost: Decimal = Decimal("0.0000003")
-    output_token_cost: Decimal = Decimal("0.000015")
+    @property
+    def llm_config(self) -> ClaudeLlmConfig:
+        if self.active_llm == "claude-sonnet-4":
+            return ClaudeLlmConfig(api_key=self.anthropic_api_key)
+        else:
+            raise ValueError(f"Unsupported LLM: {self.active_llm}")
 
 
 settings = AppSettings()
