@@ -19,19 +19,27 @@ async def get_anthropic_client(state: State) -> AnthropicClient:
 
 
 @get(
-    path="/health", dependencies={"sms_gateway_client": Provide(get_sms_gateway_client)}
+    path="/health",
+    dependencies={
+        "sms_gateway_client": Provide(get_sms_gateway_client),
+        "anthropic_client": Provide(get_anthropic_client),
+    },
 )
-async def health(sms_gateway_client: SmsGatewayClient) -> Response:
+async def health(
+    sms_gateway_client: SmsGatewayClient, anthropic_client: AnthropicClient
+) -> Response:
     gateway_health, gateway_health_info = await sms_gateway_client.gateway_health()
     webhook_health, webhook_health_info = await sms_gateway_client.webhook_health()
+    anthropic_health, anthropic_health_info = await anthropic_client.health()
 
-    is_healthy = gateway_health and webhook_health
+    is_healthy = gateway_health and webhook_health and anthropic_health
 
     return Response(
         content={
             "status": "healthy" if is_healthy else "unhealthy",
             "sms_gateway_info": str(gateway_health_info),
             "webhook_health_info": str(webhook_health_info),
+            "anthropic_health_info": str(anthropic_health_info),
         },
         status_code=HTTP_200_OK if is_healthy else HTTP_503_SERVICE_UNAVAILABLE,
     )
@@ -51,10 +59,11 @@ async def webhook(request: Request, data: SmsDelivered) -> Response:
 
 
 @get("/testanthropic", dependencies={"anthropic_client": Provide(get_anthropic_client)})
-async def test_anthropic(request: Request, anthropic_client: AnthropicClient) -> Response:
+async def test_anthropic(
+    request: Request, anthropic_client: AnthropicClient
+) -> Response:
     text = await anthropic_client.send_message(
-        messages=[{"role": "user", "content": "Hello there"}],
-        logger=request.logger
+        messages=[{"role": "user", "content": "Hello there"}], logger=request.logger
     )
     return Response(content=text, status_code=HTTP_200_OK)
 
