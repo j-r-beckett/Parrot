@@ -12,6 +12,8 @@ class AppSettings(BaseSettings):
     sms_gateway_password: str = Field(...)
 
     anthropic_api_key: str = Field(...)
+    anthropic_max_tokens: int = 1024
+    anthropic_model: str = "claude-sonnet-4-20250514"
 
 
 settings = AppSettings()
