@@ -7,10 +7,15 @@ from contextlib import asynccontextmanager
 from typing import AsyncGenerator
 from sms_gateway_client import SmsGatewayClient
 from schemas import SmsDelivered
+from anthropic import AsyncAnthropic
 
 
 async def get_sms_gateway_client(state: State) -> SmsGatewayClient:
     return state.sms_gateway_client
+
+
+async def get_anthropic_client(state: State) -> AsyncAnthropic:
+    return state.anthropic_client
 
 
 @get(
@@ -45,8 +50,20 @@ async def webhook(request: Request, data: SmsDelivered) -> Response:
     return Response(content="", status_code=HTTP_200_OK)
 
 
+@get("/testanthropic", dependencies={"anthropic_client": Provide(get_anthropic_client)})
+async def test_anthropic(anthropic_client: AsyncAnthropic) -> Response:
+    response = await anthropic_client.messages.create(
+        max_tokens=1024,
+        messages=[{"role": "user", "content": "Hello there"}],
+        model="claude-sonnet-4-20250514",
+    )
+    text = " ".join(block.text for block in response.content if block.type == "text")
+    return Response(content=text, status_code=HTTP_200_OK)
+
+
 @asynccontextmanager
 async def lifespan(app: Litestar) -> AsyncGenerator[None, None]:
+    app.state.anthropic_client = AsyncAnthropic(api_key=settings.anthropic_api_key)
     async with SmsGatewayClient(
         settings, {"sms:delivered": "/webhooks/delivered"}
     ) as sms_gateway_client:
@@ -55,7 +72,7 @@ async def lifespan(app: Litestar) -> AsyncGenerator[None, None]:
 
 
 app = Litestar(
-    route_handlers=[health, test_sms, webhook],
+    route_handlers=[health, test_sms, webhook, test_anthropic],
     lifespan=[lifespan],
     debug=settings.debug,
 )
