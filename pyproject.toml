@@ -5,7 +5,7 @@ description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.13"
 dependencies = [
-    "ai-sdk-python>=0.1.0",
+    "litellm>=1.0.0",
     "httpx>=0.28.1",
     "litestar>=2.16.0",
     "pydantic>=2.11.7",

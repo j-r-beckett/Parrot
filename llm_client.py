@@ -1,6 +1,5 @@
 from config import ClaudeLlmConfig
-from ai_sdk import anthropic, stream_text, generate_text
-from ai_sdk.types import CoreUserMessage, CoreAssistantMessage, CoreSystemMessage
+from litellm import acompletion
 from typing import List, Dict, Any, Optional, Tuple
 from logging import Logger
 from decimal import Decimal
@@ -11,41 +10,51 @@ from datetime import datetime, timedelta
 class LlmClient:
     def __init__(self, config: ClaudeLlmConfig):
         self.config = config
-
-        if config.short_name == "claude-sonnet-4":
-            self.model = anthropic(
-                config.model_name,
-                api_key=config.api_key,
-                max_tokens=config.max_tokens,
-            )
-        else:
-            raise ValueError(f"Unsupported model: {config.short_name}")
-
         self._last_result: Optional[Tuple[Optional[Exception], datetime]] = None
         self._lock = asyncio.Lock()
 
     def _calculate_cost(self, usage) -> Decimal:
-        input_cost = Decimal(str(usage.prompt_tokens)) * self.config.input_token_cost
-        output_cost = (
-            Decimal(str(usage.completion_tokens)) * self.config.output_token_cost
-        )
+        if not usage:
+            return Decimal("0")
+
+        # LiteLLM provides usage as a dict with prompt_tokens and completion_tokens
+        prompt_tokens = usage.get("prompt_tokens", 0)
+        completion_tokens = usage.get("completion_tokens", 0)
+
+        input_cost = Decimal(str(prompt_tokens)) * self.config.input_token_cost
+        output_cost = Decimal(str(completion_tokens)) * self.config.output_token_cost
 
         return input_cost + output_cost
 
     async def send_message(
         self,
-        messages: List[CoreUserMessage | CoreAssistantMessage | CoreSystemMessage],
+        messages: List[Dict[str, str]],
         logger: Logger,
+        max_tokens: Optional[int] = None,
     ) -> str:
+        """Send messages to LLM using LiteLLM.
+
+        Args:
+            messages: List of message dicts with 'role' and 'content'
+            logger: Logger instance for logging
+            max_tokens: Maximum tokens to generate (defaults to self.config.max_tokens)
+
+        Returns:
+            The generated text response
+        """
+        if max_tokens is None:
+            max_tokens = self.config.max_tokens
+            
         try:
-            # Test: Try using generate_text instead of stream_text to see if usage is populated
-            # Convert to sync call wrapped in asyncio
-            loop = asyncio.get_event_loop()
-            response = await loop.run_in_executor(
-                None, 
-                lambda: generate_text(model=self.model, messages=messages)
+            response = await acompletion(
+                model=self.config.model_name,
+                messages=messages,
+                max_tokens=max_tokens,
+                stream=False,
+                api_key=self.config.api_key,
             )
-            text = response.text
+
+            text = response.choices[0].message.content
 
             async with self._lock:
                 self._last_result = (None, datetime.now())
@@ -53,14 +62,18 @@ class LlmClient:
             logger.info(f"Message sent to LLM ({self.config.short_name})")
 
             # Log usage if available
-            logger.debug(f"Response usage object: {response.usage}")
             if response.usage:
-                cost = self._calculate_cost(response.usage)
-                logger.info(
-                    f"Usage: {response.usage.prompt_tokens} prompt tokens, {response.usage.completion_tokens} completion tokens, cost: ${cost}"
+                usage_dict = (
+                    response.usage.model_dump()
+                    if hasattr(response.usage, "model_dump")
+                    else response.usage
                 )
-            else:
-                logger.warning("No usage information available from response")
+                cost = self._calculate_cost(usage_dict)
+                prompt_tokens = usage_dict.get("prompt_tokens", 0)
+                completion_tokens = usage_dict.get("completion_tokens", 0)
+                logger.info(
+                    f"Usage: {prompt_tokens} prompt tokens, {completion_tokens} completion tokens, cost: ${cost}"
+                )
 
             return text
         except Exception as e:
@@ -90,9 +103,16 @@ class LlmClient:
 
         # Make a real API call
         try:
-            stream_res = stream_text(model=self.model, prompt="Hi", system="Hi")
-            await stream_res.text()
-
+            # Create a minimal logger for health checks
+            import logging
+            health_logger = logging.getLogger("health_check")
+            
+            await self.send_message(
+                messages=[{"role": "user", "content": "Hi"}],
+                logger=health_logger,
+                max_tokens=1
+            )
+            
             now = datetime.now()
             async with self._lock:
                 self._last_result = (None, now)
