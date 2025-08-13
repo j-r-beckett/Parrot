@@ -9,6 +9,7 @@ from sms_gateway_client import SmsGatewayClient
 from schemas import SmsDelivered
 from llm_client import LlmClient
 from mirascope.core.base import Messages
+from weather_client import WeatherClient
 
 
 async def get_sms_gateway_client(state: State) -> SmsGatewayClient:
@@ -17,6 +18,10 @@ async def get_sms_gateway_client(state: State) -> SmsGatewayClient:
 
 async def get_llm_client(state: State) -> LlmClient:
     return state.llm_client
+
+
+async def get_weather_client(state: State) -> WeatherClient:
+    return state.weather_client
 
 
 @get(
@@ -67,18 +72,33 @@ async def test_llm(request: Request, llm_client: LlmClient) -> Response:
     return Response(content=text, status_code=HTTP_200_OK)
 
 
+@get("/testweather", dependencies={"weather_client": Provide(get_weather_client)})
+async def test_weather(
+    request: Request, weather_client: WeatherClient, lat: float, lon: float
+) -> Response:
+    temperature = await weather_client.get_temperature(request.logger, lat, lon)
+    return Response(
+        content={"temperature": temperature, "lat": lat, "lon": lon},
+        status_code=HTTP_200_OK,
+    )
+
+
 @asynccontextmanager
 async def lifespan(app: Litestar) -> AsyncGenerator[None, None]:
     app.state.llm_client = LlmClient(settings.llm_config)
-    async with SmsGatewayClient(
-        settings, {"sms:delivered": "/webhooks/delivered"}
-    ) as sms_gateway_client:
+    async with (
+        SmsGatewayClient(
+            settings, {"sms:delivered": "/webhooks/delivered"}
+        ) as sms_gateway_client,
+        WeatherClient(settings) as weather_client,
+    ):
         app.state.sms_gateway_client = sms_gateway_client
+        app.state.weather_client = weather_client
         yield
 
 
 app = Litestar(
-    route_handlers=[health, test_sms, webhook, test_llm],
+    route_handlers=[health, test_sms, webhook, test_llm, test_weather],
     lifespan=[lifespan],
     debug=settings.debug,
 )

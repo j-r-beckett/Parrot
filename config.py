@@ -23,6 +23,9 @@ class AppSettings(BaseSettings):
 
     anthropic_api_key: str = Field(...)
 
+    nws_api_url: str = Field(default="https://api.weather.gov")
+    nws_user_agent: str = Field(default="ludd-0.1")
+
     @property
     def llm_config(self) -> ClaudeLlmConfig:
         if self.active_llm == "claude-sonnet-4":
