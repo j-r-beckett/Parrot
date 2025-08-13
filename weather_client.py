@@ -31,7 +31,7 @@ class WeatherClient:
             )
 
         # Write points response to file
-        with open("/home/jimmy/repos/ludd/points.txt", "w") as f:
+        with open("/home/jimmy/repos/clanker/points.txt", "w") as f:
             f.write(points_response.text)
         logger.info("Wrote points response to points.txt")
 
@@ -55,7 +55,7 @@ class WeatherClient:
         )
 
         # Write forecast response to file
-        with open("/home/jimmy/repos/ludd/forecast.txt", "w") as f:
+        with open("/home/jimmy/repos/clanker/forecast.txt", "w") as f:
             f.write(forecast_response.text)
         logger.info("Wrote forecast response to forecast.txt")
 
@@ -65,7 +65,7 @@ class WeatherClient:
         )
 
         # Write 12-hour forecast response to file
-        with open("/home/jimmy/repos/ludd/forecast_12.txt", "w") as f:
+        with open("/home/jimmy/repos/clanker/forecast_12.txt", "w") as f:
             f.write(forecast_12_response.text)
         logger.info("Wrote 12-hour forecast response to forecast_12.txt")
 

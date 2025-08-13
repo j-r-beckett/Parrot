@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-Ludd is a Python web application built with the Litestar ASGI framework, focused on SMS gateway integration with Android device management capabilities. The project uses Python 3.13 and the UV package manager.
+Clanker is a Python web application built with the Litestar ASGI framework, focused on SMS gateway integration with Android device management capabilities. The project uses Python 3.13 and the UV package manager.
 
 ## Development Commands
 

@@ -24,7 +24,7 @@ class AppSettings(BaseSettings):
     anthropic_api_key: str = Field(...)
 
     nws_api_url: str = Field(default="https://api.weather.gov")
-    nws_user_agent: str = Field(default="ludd-0.1")
+    nws_user_agent: str = Field(default="clanker-0.1")
 
     @property
     def llm_config(self) -> ClaudeLlmConfig:

@@ -1,6 +1,6 @@
-# The Ethos of Ludd
+# The Ethos of Clanker
 
-Ludd is an assistant. An "assistant" is an LLM with access to tools that is available on demand. An assistant has three types of components: the LLM, the tools, and the glue server. The Ludd codebase implements a glue server and various tools. The glue server is what users connect to, and it manages the connections between the user, the LLM, and the various tools. More advanced assistants in the future may ship with their own specialized LLMs, but Ludd does not.
+Clanker is an assistant. An "assistant" is an LLM with access to tools that is available on demand. An assistant has three types of components: the LLM, the tools, and the glue server. The Clanker codebase implements a glue server and various tools. The glue server is what users connect to, and it manages the connections between the user, the LLM, and the various tools. More advanced assistants in the future may ship with their own specialized LLMs, but Clanker does not.
 
 ## The Lethal Trifecta
 
