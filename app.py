@@ -72,13 +72,37 @@ async def test_llm(request: Request, llm_client: LlmClient) -> Response:
     return Response(content=text, status_code=HTTP_200_OK)
 
 
-@get("/testweather", dependencies={"weather_client": Provide(get_weather_client)})
-async def test_weather(
+@get(
+    "/testweather/hourly", dependencies={"weather_client": Provide(get_weather_client)}
+)
+async def test_weather_hourly(
     request: Request, weather_client: WeatherClient, lat: float, lon: float
 ) -> Response:
-    temperature = await weather_client.get_temperature(request.logger, lat, lon)
+    forecast = await weather_client.hourly_forecast(request.logger, lat, lon)
     return Response(
-        content={"temperature": temperature, "lat": lat, "lon": lon},
+        content={
+            "temperature": forecast.forecasts[0].temperature,
+            "lat": lat,
+            "lon": lon,
+        },
+        status_code=HTTP_200_OK,
+    )
+
+
+@get(
+    "/testweather/semidiurnal",
+    dependencies={"weather_client": Provide(get_weather_client)},
+)
+async def test_weather_semidiurnal(
+    request: Request, weather_client: WeatherClient, lat: float, lon: float
+) -> Response:
+    forecast = await weather_client.semidiurnal_forecast(request.logger, lat, lon)
+    return Response(
+        content={
+            "temperature": forecast.forecasts[0].temperature,
+            "lat": lat,
+            "lon": lon,
+        },
         status_code=HTTP_200_OK,
     )
 
@@ -98,7 +122,14 @@ async def lifespan(app: Litestar) -> AsyncGenerator[None, None]:
 
 
 app = Litestar(
-    route_handlers=[health, test_sms, webhook, test_llm, test_weather],
+    route_handlers=[
+        health,
+        test_sms,
+        webhook,
+        test_llm,
+        test_weather_hourly,
+        test_weather_semidiurnal,
+    ],
     lifespan=[lifespan],
     debug=settings.debug,
 )

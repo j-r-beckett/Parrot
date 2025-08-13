@@ -23,100 +23,47 @@ class WeatherClient:
     async def __aexit__(self, *args):
         await self.client.aclose()
 
-    async def get_temperature(self, logger: Logger, lat: float, lon: float) -> float:
-        # Step 1: Get grid information from coordinates
-        points_response = await self.client.get(f"/points/{lat},{lon}")
+    async def _get_grid_info(self, lat: float, lon: float) -> tuple[str, int, int]:
+        """Get grid information from coordinates"""
+        response = await self.client.get(f"/points/{lat},{lon}")
 
-        if points_response.status_code == 404:
+        if response.status_code == 404:
             raise ValueError(
-                f"No forecast data for coordinates {lat},{lon} (might be ocean or outside US)"
+                f"No forecast data for coordinates {lat},{lon} (ocean or outside US?)"
             )
 
-        # Write points response to file
-        with open("/home/jimmy/repos/clanker/points.txt", "w") as f:
-            f.write(points_response.text)
-        logger.info("Wrote points response to points.txt")
+        response.raise_for_status()
 
-        points_response.raise_for_status()
-        points_data = points_response.json()
+        properties = response.json()["properties"]
 
-        # Extract grid coordinates
-        properties = points_data.get("properties", {})
-        grid_id = properties.get("gridId")
-        grid_x = properties.get("gridX")
-        grid_y = properties.get("gridY")
+        return properties["gridId"], properties["gridX"], properties["gridY"]
 
-        if not all([grid_id, grid_x is not None, grid_y is not None]):
-            raise ValueError(
-                f"Missing grid data in points response: gridId={grid_id}, gridX={grid_x}, gridY={grid_y}"
-            )
+    async def hourly_forecast(
+        self, logger: Logger, lat: float, lon: float
+    ) -> HourlyForecast:
+        grid_id, grid_x, grid_y = await self._get_grid_info(lat, lon)
 
-        # Step 2: Get hourly forecast for the grid point
         forecast_response = await self.client.get(
             f"/gridpoints/{grid_id}/{grid_x},{grid_y}/forecast/hourly"
         )
 
-        # Write forecast response to file
-        with open("/home/jimmy/repos/clanker/forecast.txt", "w") as f:
-            f.write(forecast_response.text)
-        logger.info("Wrote forecast response to forecast.txt")
-        
-        # Parse hourly forecast using schema
+        forecast_response.raise_for_status()
         forecast_data = forecast_response.json()
-        hourly_forecast = HourlyForecast.from_nws_response(
-            forecast_data["properties"]["periods"]
-        )
-        
-        # Write typed hourly forecast as JSON
-        with open("/home/jimmy/repos/clanker/typed_forecast.txt", "w") as f:
-            json.dump(hourly_forecast.model_dump(), f, indent=2)
-        logger.info("Wrote typed hourly forecast to typed_forecast.txt")
 
-        # Step 3: Get 12-hour forecast (daily/nightly periods)
-        forecast_12_response = await self.client.get(
+        return HourlyForecast.from_nws_response(forecast_data["properties"]["periods"])
+
+    async def semidiurnal_forecast(
+        self, logger: Logger, lat: float, lon: float
+    ) -> SemidiurnalForecast:
+        grid_id, grid_x, grid_y = await self._get_grid_info(lat, lon)
+
+        forecast_response = await self.client.get(
             f"/gridpoints/{grid_id}/{grid_x},{grid_y}/forecast"
         )
-
-        # Write 12-hour forecast response to file
-        with open("/home/jimmy/repos/clanker/forecast_12.txt", "w") as f:
-            f.write(forecast_12_response.text)
-        logger.info("Wrote 12-hour forecast response to forecast_12.txt")
-        
-        # Parse semidiurnal forecast using schema
-        forecast_12_data = forecast_12_response.json()
-        semidiurnal_forecast = SemidiurnalForecast.from_nws_response(
-            forecast_12_data["properties"]["periods"]
-        )
-        
-        # Write typed semidiurnal forecast as JSON
-        with open("/home/jimmy/repos/clanker/typed_forecast_12.txt", "w") as f:
-            json.dump(semidiurnal_forecast.model_dump(), f, indent=2)
-        logger.info("Wrote typed semidiurnal forecast to typed_forecast_12.txt")
-
-        if forecast_response.status_code == 404:
-            raise ValueError(
-                f"No forecast data for grid point {grid_id}/{grid_x},{grid_y}"
-            )
-        elif forecast_response.status_code == 500:
-            raise ValueError(
-                f"NWS API error for grid point {grid_id}/{grid_x},{grid_y} (possibly during forecast update, try again in a minute)"
-            )
 
         forecast_response.raise_for_status()
         forecast_data = forecast_response.json()
 
-        # Extract temperature from first period (current/nearest hour)
-        periods = forecast_data.get("properties", {}).get("periods", [])
-
-        if not periods:
-            raise ValueError("No forecast periods available in response")
-
-        first_period = periods[0]
-        temperature = first_period.get("temperature")
-
-        if temperature is None:
-            raise ValueError(
-                f"No temperature data in first forecast period: {first_period}"
-            )
-
-        return float(temperature)
+        return SemidiurnalForecast.from_nws_response(
+            forecast_data["properties"]["periods"]
+        )
