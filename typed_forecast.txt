@@ -1,0 +1,940 @@
+{
+  "forecasts": [
+    {
+      "time": "Aug 13, 4:00 AM",
+      "temperature": 76,
+      "precipitation_probability": 1,
+      "description": "Mostly Clear"
+    },
+    {
+      "time": "Aug 13, 5:00 AM",
+      "temperature": 75,
+      "precipitation_probability": 2,
+      "description": "Mostly Clear"
+    },
+    {
+      "time": "Aug 13, 6:00 AM",
+      "temperature": 74,
+      "precipitation_probability": 2,
+      "description": "Mostly Sunny"
+    },
+    {
+      "time": "Aug 13, 7:00 AM",
+      "temperature": 75,
+      "precipitation_probability": 2,
+      "description": "Mostly Sunny"
+    },
+    {
+      "time": "Aug 13, 8:00 AM",
+      "temperature": 76,
+      "precipitation_probability": 5,
+      "description": "Partly Sunny"
+    },
+    {
+      "time": "Aug 13, 9:00 AM",
+      "temperature": 78,
+      "precipitation_probability": 5,
+      "description": "Partly Sunny"
+    },
+    {
+      "time": "Aug 13, 10:00 AM",
+      "temperature": 82,
+      "precipitation_probability": 5,
+      "description": "Mostly Sunny"
+    },
+    {
+      "time": "Aug 13, 11:00 AM",
+      "temperature": 85,
+      "precipitation_probability": 14,
+      "description": "Mostly Sunny"
+    },
+    {
+      "time": "Aug 13, 12:00 PM",
+      "temperature": 87,
+      "precipitation_probability": 14,
+      "description": "Mostly Sunny"
+    },
+    {
+      "time": "Aug 13, 1:00 PM",
+      "temperature": 88,
+      "precipitation_probability": 14,
+      "description": "Mostly Sunny"
+    },
+    {
+      "time": "Aug 13, 2:00 PM",
+      "temperature": 88,
+      "precipitation_probability": 23,
+      "description": "Slight Chance Showers And Thunderstorms"
+    },
+    {
+      "time": "Aug 13, 3:00 PM",
+      "temperature": 89,
+      "precipitation_probability": 23,
+      "description": "Slight Chance Showers And Thunderstorms"
+    },
+    {
+      "time": "Aug 13, 4:00 PM",
+      "temperature": 87,
+      "precipitation_probability": 23,
+      "description": "Slight Chance Showers And Thunderstorms"
+    },
+    {
+      "time": "Aug 13, 5:00 PM",
+      "temperature": 86,
+      "precipitation_probability": 47,
+      "description": "Chance Showers And Thunderstorms"
+    },
+    {
+      "time": "Aug 13, 6:00 PM",
+      "temperature": 84,
+      "precipitation_probability": 47,
+      "description": "Chance Showers And Thunderstorms"
+    },
+    {
+      "time": "Aug 13, 7:00 PM",
+      "temperature": 81,
+      "precipitation_probability": 47,
+      "description": "Chance Showers And Thunderstorms"
+    },
+    {
+      "time": "Aug 13, 8:00 PM",
+      "temperature": 79,
+      "precipitation_probability": 44,
+      "description": "Chance Showers And Thunderstorms"
+    },
+    {
+      "time": "Aug 13, 9:00 PM",
+      "temperature": 79,
+      "precipitation_probability": 44,
+      "description": "Chance Showers And Thunderstorms"
+    },
+    {
+      "time": "Aug 13, 10:00 PM",
+      "temperature": 79,
+      "precipitation_probability": 44,
+      "description": "Chance Showers And Thunderstorms"
+    },
+    {
+      "time": "Aug 13, 11:00 PM",
+      "temperature": 78,
+      "precipitation_probability": 45,
+      "description": "Chance Showers And Thunderstorms"
+    },
+    {
+      "time": "Aug 14, 12:00 AM",
+      "temperature": 77,
+      "precipitation_probability": 45,
+      "description": "Chance Showers And Thunderstorms"
+    },
+    {
+      "time": "Aug 14, 1:00 AM",
+      "temperature": 77,
+      "precipitation_probability": 45,
+      "description": "Chance Showers And Thunderstorms"
+    },
+    {
+      "time": "Aug 14, 2:00 AM",
+      "temperature": 76,
+      "precipitation_probability": 53,
+      "description": "Chance Rain Showers"
+    },
+    {
+      "time": "Aug 14, 3:00 AM",
+      "temperature": 75,
+      "precipitation_probability": 53,
+      "description": "Chance Rain Showers"
+    },
+    {
+      "time": "Aug 14, 4:00 AM",
+      "temperature": 75,
+      "precipitation_probability": 53,
+      "description": "Chance Rain Showers"
+    },
+    {
+      "time": "Aug 14, 5:00 AM",
+      "temperature": 75,
+      "precipitation_probability": 30,
+      "description": "Chance Rain Showers"
+    },
+    {
+      "time": "Aug 14, 6:00 AM",
+      "temperature": 74,
+      "precipitation_probability": 30,
+      "description": "Chance Rain Showers"
+    },
+    {
+      "time": "Aug 14, 7:00 AM",
+      "temperature": 73,
+      "precipitation_probability": 30,
+      "description": "Chance Rain Showers"
+    },
+    {
+      "time": "Aug 14, 8:00 AM",
+      "temperature": 74,
+      "precipitation_probability": 46,
+      "description": "Chance Rain Showers"
+    },
+    {
+      "time": "Aug 14, 9:00 AM",
+      "temperature": 76,
+      "precipitation_probability": 46,
+      "description": "Chance Rain Showers"
+    },
+    {
+      "time": "Aug 14, 10:00 AM",
+      "temperature": 80,
+      "precipitation_probability": 46,
+      "description": "Chance Rain Showers"
+    },
+    {
+      "time": "Aug 14, 11:00 AM",
+      "temperature": 83,
+      "precipitation_probability": 49,
+      "description": "Chance Showers And Thunderstorms"
+    },
+    {
+      "time": "Aug 14, 12:00 PM",
+      "temperature": 85,
+      "precipitation_probability": 49,
+      "description": "Chance Showers And Thunderstorms"
+    },
+    {
+      "time": "Aug 14, 1:00 PM",
+      "temperature": 86,
+      "precipitation_probability": 49,
+      "description": "Chance Showers And Thunderstorms"
+    },
+    {
+      "time": "Aug 14, 2:00 PM",
+      "temperature": 86,
+      "precipitation_probability": 61,
+      "description": "Showers And Thunderstorms Likely"
+    },
+    {
+      "time": "Aug 14, 3:00 PM",
+      "temperature": 87,
+      "precipitation_probability": 61,
+      "description": "Showers And Thunderstorms Likely"
+    },
+    {
+      "time": "Aug 14, 4:00 PM",
+      "temperature": 87,
+      "precipitation_probability": 61,
+      "description": "Showers And Thunderstorms Likely"
+    },
+    {
+      "time": "Aug 14, 5:00 PM",
+      "temperature": 86,
+      "precipitation_probability": 61,
+      "description": "Showers And Thunderstorms Likely"
+    },
+    {
+      "time": "Aug 14, 6:00 PM",
+      "temperature": 84,
+      "precipitation_probability": 61,
+      "description": "Showers And Thunderstorms Likely"
+    },
+    {
+      "time": "Aug 14, 7:00 PM",
+      "temperature": 82,
+      "precipitation_probability": 61,
+      "description": "Showers And Thunderstorms Likely"
+    },
+    {
+      "time": "Aug 14, 8:00 PM",
+      "temperature": 80,
+      "precipitation_probability": 13,
+      "description": "Partly Cloudy"
+    },
+    {
+      "time": "Aug 14, 9:00 PM",
+      "temperature": 79,
+      "precipitation_probability": 13,
+      "description": "Partly Cloudy"
+    },
+    {
+      "time": "Aug 14, 10:00 PM",
+      "temperature": 79,
+      "precipitation_probability": 13,
+      "description": "Partly Cloudy"
+    },
+    {
+      "time": "Aug 14, 11:00 PM",
+      "temperature": 79,
+      "precipitation_probability": 13,
+      "description": "Partly Cloudy"
+    },
+    {
+      "time": "Aug 15, 12:00 AM",
+      "temperature": 78,
+      "precipitation_probability": 13,
+      "description": "Partly Cloudy"
+    },
+    {
+      "time": "Aug 15, 1:00 AM",
+      "temperature": 77,
+      "precipitation_probability": 13,
+      "description": "Partly Cloudy"
+    },
+    {
+      "time": "Aug 15, 2:00 AM",
+      "temperature": 76,
+      "precipitation_probability": 5,
+      "description": "Mostly Clear"
+    },
+    {
+      "time": "Aug 15, 3:00 AM",
+      "temperature": 75,
+      "precipitation_probability": 5,
+      "description": "Mostly Clear"
+    },
+    {
+      "time": "Aug 15, 4:00 AM",
+      "temperature": 74,
+      "precipitation_probability": 5,
+      "description": "Mostly Clear"
+    },
+    {
+      "time": "Aug 15, 5:00 AM",
+      "temperature": 73,
+      "precipitation_probability": 5,
+      "description": "Mostly Clear"
+    },
+    {
+      "time": "Aug 15, 6:00 AM",
+      "temperature": 73,
+      "precipitation_probability": 5,
+      "description": "Sunny"
+    },
+    {
+      "time": "Aug 15, 7:00 AM",
+      "temperature": 74,
+      "precipitation_probability": 5,
+      "description": "Sunny"
+    },
+    {
+      "time": "Aug 15, 8:00 AM",
+      "temperature": 75,
+      "precipitation_probability": 5,
+      "description": "Sunny"
+    },
+    {
+      "time": "Aug 15, 9:00 AM",
+      "temperature": 77,
+      "precipitation_probability": 5,
+      "description": "Sunny"
+    },
+    {
+      "time": "Aug 15, 10:00 AM",
+      "temperature": 80,
+      "precipitation_probability": 5,
+      "description": "Sunny"
+    },
+    {
+      "time": "Aug 15, 11:00 AM",
+      "temperature": 82,
+      "precipitation_probability": 5,
+      "description": "Mostly Sunny"
+    },
+    {
+      "time": "Aug 15, 12:00 PM",
+      "temperature": 84,
+      "precipitation_probability": 5,
+      "description": "Mostly Sunny"
+    },
+    {
+      "time": "Aug 15, 1:00 PM",
+      "temperature": 85,
+      "precipitation_probability": 5,
+      "description": "Mostly Sunny"
+    },
+    {
+      "time": "Aug 15, 2:00 PM",
+      "temperature": 86,
+      "precipitation_probability": 11,
+      "description": "Mostly Sunny"
+    },
+    {
+      "time": "Aug 15, 3:00 PM",
+      "temperature": 86,
+      "precipitation_probability": 11,
+      "description": "Mostly Sunny"
+    },
+    {
+      "time": "Aug 15, 4:00 PM",
+      "temperature": 86,
+      "precipitation_probability": 11,
+      "description": "Mostly Sunny"
+    },
+    {
+      "time": "Aug 15, 5:00 PM",
+      "temperature": 85,
+      "precipitation_probability": 11,
+      "description": "Mostly Sunny"
+    },
+    {
+      "time": "Aug 15, 6:00 PM",
+      "temperature": 83,
+      "precipitation_probability": 11,
+      "description": "Mostly Clear"
+    },
+    {
+      "time": "Aug 15, 7:00 PM",
+      "temperature": 81,
+      "precipitation_probability": 11,
+      "description": "Mostly Clear"
+    },
+    {
+      "time": "Aug 15, 8:00 PM",
+      "temperature": 79,
+      "precipitation_probability": 9,
+      "description": "Mostly Clear"
+    },
+    {
+      "time": "Aug 15, 9:00 PM",
+      "temperature": 77,
+      "precipitation_probability": 9,
+      "description": "Partly Cloudy"
+    },
+    {
+      "time": "Aug 15, 10:00 PM",
+      "temperature": 76,
+      "precipitation_probability": 9,
+      "description": "Partly Cloudy"
+    },
+    {
+      "time": "Aug 15, 11:00 PM",
+      "temperature": 75,
+      "precipitation_probability": 9,
+      "description": "Partly Cloudy"
+    },
+    {
+      "time": "Aug 16, 12:00 AM",
+      "temperature": 74,
+      "precipitation_probability": 9,
+      "description": "Partly Cloudy"
+    },
+    {
+      "time": "Aug 16, 1:00 AM",
+      "temperature": 74,
+      "precipitation_probability": 9,
+      "description": "Partly Cloudy"
+    },
+    {
+      "time": "Aug 16, 2:00 AM",
+      "temperature": 73,
+      "precipitation_probability": 9,
+      "description": "Partly Cloudy"
+    },
+    {
+      "time": "Aug 16, 3:00 AM",
+      "temperature": 72,
+      "precipitation_probability": 9,
+      "description": "Partly Cloudy"
+    },
+    {
+      "time": "Aug 16, 4:00 AM",
+      "temperature": 71,
+      "precipitation_probability": 9,
+      "description": "Partly Cloudy"
+    },
+    {
+      "time": "Aug 16, 5:00 AM",
+      "temperature": 71,
+      "precipitation_probability": 9,
+      "description": "Partly Cloudy"
+    },
+    {
+      "time": "Aug 16, 6:00 AM",
+      "temperature": 71,
+      "precipitation_probability": 9,
+      "description": "Mostly Sunny"
+    },
+    {
+      "time": "Aug 16, 7:00 AM",
+      "temperature": 72,
+      "precipitation_probability": 9,
+      "description": "Mostly Sunny"
+    },
+    {
+      "time": "Aug 16, 8:00 AM",
+      "temperature": 73,
+      "precipitation_probability": 12,
+      "description": "Mostly Sunny"
+    },
+    {
+      "time": "Aug 16, 9:00 AM",
+      "temperature": 75,
+      "precipitation_probability": 12,
+      "description": "Mostly Sunny"
+    },
+    {
+      "time": "Aug 16, 10:00 AM",
+      "temperature": 77,
+      "precipitation_probability": 12,
+      "description": "Mostly Sunny"
+    },
+    {
+      "time": "Aug 16, 11:00 AM",
+      "temperature": 80,
+      "precipitation_probability": 12,
+      "description": "Mostly Sunny"
+    },
+    {
+      "time": "Aug 16, 12:00 PM",
+      "temperature": 82,
+      "precipitation_probability": 12,
+      "description": "Mostly Sunny"
+    },
+    {
+      "time": "Aug 16, 1:00 PM",
+      "temperature": 83,
+      "precipitation_probability": 12,
+      "description": "Mostly Sunny"
+    },
+    {
+      "time": "Aug 16, 2:00 PM",
+      "temperature": 83,
+      "precipitation_probability": 13,
+      "description": "Mostly Sunny"
+    },
+    {
+      "time": "Aug 16, 3:00 PM",
+      "temperature": 83,
+      "precipitation_probability": 13,
+      "description": "Sunny"
+    },
+    {
+      "time": "Aug 16, 4:00 PM",
+      "temperature": 83,
+      "precipitation_probability": 13,
+      "description": "Sunny"
+    },
+    {
+      "time": "Aug 16, 5:00 PM",
+      "temperature": 82,
+      "precipitation_probability": 13,
+      "description": "Sunny"
+    },
+    {
+      "time": "Aug 16, 6:00 PM",
+      "temperature": 81,
+      "precipitation_probability": 13,
+      "description": "Mostly Clear"
+    },
+    {
+      "time": "Aug 16, 7:00 PM",
+      "temperature": 79,
+      "precipitation_probability": 13,
+      "description": "Mostly Clear"
+    },
+    {
+      "time": "Aug 16, 8:00 PM",
+      "temperature": 78,
+      "precipitation_probability": 7,
+      "description": "Mostly Clear"
+    },
+    {
+      "time": "Aug 16, 9:00 PM",
+      "temperature": 77,
+      "precipitation_probability": 7,
+      "description": "Mostly Clear"
+    },
+    {
+      "time": "Aug 16, 10:00 PM",
+      "temperature": 77,
+      "precipitation_probability": 7,
+      "description": "Mostly Clear"
+    },
+    {
+      "time": "Aug 16, 11:00 PM",
+      "temperature": 76,
+      "precipitation_probability": 7,
+      "description": "Mostly Clear"
+    },
+    {
+      "time": "Aug 17, 12:00 AM",
+      "temperature": 75,
+      "precipitation_probability": 7,
+      "description": "Mostly Clear"
+    },
+    {
+      "time": "Aug 17, 1:00 AM",
+      "temperature": 75,
+      "precipitation_probability": 7,
+      "description": "Mostly Clear"
+    },
+    {
+      "time": "Aug 17, 2:00 AM",
+      "temperature": 74,
+      "precipitation_probability": 4,
+      "description": "Mostly Clear"
+    },
+    {
+      "time": "Aug 17, 3:00 AM",
+      "temperature": 73,
+      "precipitation_probability": 4,
+      "description": "Mostly Clear"
+    },
+    {
+      "time": "Aug 17, 4:00 AM",
+      "temperature": 72,
+      "precipitation_probability": 4,
+      "description": "Mostly Clear"
+    },
+    {
+      "time": "Aug 17, 5:00 AM",
+      "temperature": 72,
+      "precipitation_probability": 4,
+      "description": "Mostly Clear"
+    },
+    {
+      "time": "Aug 17, 6:00 AM",
+      "temperature": 72,
+      "precipitation_probability": 4,
+      "description": "Sunny"
+    },
+    {
+      "time": "Aug 17, 7:00 AM",
+      "temperature": 73,
+      "precipitation_probability": 4,
+      "description": "Sunny"
+    },
+    {
+      "time": "Aug 17, 8:00 AM",
+      "temperature": 75,
+      "precipitation_probability": 5,
+      "description": "Sunny"
+    },
+    {
+      "time": "Aug 17, 9:00 AM",
+      "temperature": 77,
+      "precipitation_probability": 5,
+      "description": "Sunny"
+    },
+    {
+      "time": "Aug 17, 10:00 AM",
+      "temperature": 80,
+      "precipitation_probability": 5,
+      "description": "Sunny"
+    },
+    {
+      "time": "Aug 17, 11:00 AM",
+      "temperature": 83,
+      "precipitation_probability": 5,
+      "description": "Sunny"
+    },
+    {
+      "time": "Aug 17, 12:00 PM",
+      "temperature": 86,
+      "precipitation_probability": 5,
+      "description": "Sunny"
+    },
+    {
+      "time": "Aug 17, 1:00 PM",
+      "temperature": 88,
+      "precipitation_probability": 5,
+      "description": "Mostly Sunny"
+    },
+    {
+      "time": "Aug 17, 2:00 PM",
+      "temperature": 89,
+      "precipitation_probability": 21,
+      "description": "Slight Chance Showers And Thunderstorms"
+    },
+    {
+      "time": "Aug 17, 3:00 PM",
+      "temperature": 89,
+      "precipitation_probability": 21,
+      "description": "Slight Chance Showers And Thunderstorms"
+    },
+    {
+      "time": "Aug 17, 4:00 PM",
+      "temperature": 87,
+      "precipitation_probability": 21,
+      "description": "Slight Chance Showers And Thunderstorms"
+    },
+    {
+      "time": "Aug 17, 5:00 PM",
+      "temperature": 86,
+      "precipitation_probability": 21,
+      "description": "Slight Chance Showers And Thunderstorms"
+    },
+    {
+      "time": "Aug 17, 6:00 PM",
+      "temperature": 85,
+      "precipitation_probability": 21,
+      "description": "Slight Chance Showers And Thunderstorms"
+    },
+    {
+      "time": "Aug 17, 7:00 PM",
+      "temperature": 84,
+      "precipitation_probability": 21,
+      "description": "Slight Chance Showers And Thunderstorms"
+    },
+    {
+      "time": "Aug 17, 8:00 PM",
+      "temperature": 83,
+      "precipitation_probability": 26,
+      "description": "Chance Showers And Thunderstorms"
+    },
+    {
+      "time": "Aug 17, 9:00 PM",
+      "temperature": 82,
+      "precipitation_probability": 26,
+      "description": "Chance Showers And Thunderstorms"
+    },
+    {
+      "time": "Aug 17, 10:00 PM",
+      "temperature": 81,
+      "precipitation_probability": 26,
+      "description": "Chance Showers And Thunderstorms"
+    },
+    {
+      "time": "Aug 17, 11:00 PM",
+      "temperature": 80,
+      "precipitation_probability": 26,
+      "description": "Chance Showers And Thunderstorms"
+    },
+    {
+      "time": "Aug 18, 12:00 AM",
+      "temperature": 79,
+      "precipitation_probability": 26,
+      "description": "Chance Showers And Thunderstorms"
+    },
+    {
+      "time": "Aug 18, 1:00 AM",
+      "temperature": 78,
+      "precipitation_probability": 26,
+      "description": "Chance Showers And Thunderstorms"
+    },
+    {
+      "time": "Aug 18, 2:00 AM",
+      "temperature": 77,
+      "precipitation_probability": 16,
+      "description": "Slight Chance Rain Showers"
+    },
+    {
+      "time": "Aug 18, 3:00 AM",
+      "temperature": 75,
+      "precipitation_probability": 16,
+      "description": "Slight Chance Rain Showers"
+    },
+    {
+      "time": "Aug 18, 4:00 AM",
+      "temperature": 74,
+      "precipitation_probability": 16,
+      "description": "Slight Chance Rain Showers"
+    },
+    {
+      "time": "Aug 18, 5:00 AM",
+      "temperature": 73,
+      "precipitation_probability": 16,
+      "description": "Slight Chance Rain Showers"
+    },
+    {
+      "time": "Aug 18, 6:00 AM",
+      "temperature": 73,
+      "precipitation_probability": 16,
+      "description": "Slight Chance Rain Showers"
+    },
+    {
+      "time": "Aug 18, 7:00 AM",
+      "temperature": 73,
+      "precipitation_probability": 16,
+      "description": "Slight Chance Rain Showers"
+    },
+    {
+      "time": "Aug 18, 8:00 AM",
+      "temperature": 74,
+      "precipitation_probability": 9,
+      "description": "Sunny"
+    },
+    {
+      "time": "Aug 18, 9:00 AM",
+      "temperature": 76,
+      "precipitation_probability": 9,
+      "description": "Sunny"
+    },
+    {
+      "time": "Aug 18, 10:00 AM",
+      "temperature": 78,
+      "precipitation_probability": 9,
+      "description": "Mostly Sunny"
+    },
+    {
+      "time": "Aug 18, 11:00 AM",
+      "temperature": 80,
+      "precipitation_probability": 9,
+      "description": "Mostly Sunny"
+    },
+    {
+      "time": "Aug 18, 12:00 PM",
+      "temperature": 82,
+      "precipitation_probability": 9,
+      "description": "Mostly Sunny"
+    },
+    {
+      "time": "Aug 18, 1:00 PM",
+      "temperature": 83,
+      "precipitation_probability": 9,
+      "description": "Mostly Sunny"
+    },
+    {
+      "time": "Aug 18, 2:00 PM",
+      "temperature": 84,
+      "precipitation_probability": 18,
+      "description": "Slight Chance Rain Showers"
+    },
+    {
+      "time": "Aug 18, 3:00 PM",
+      "temperature": 84,
+      "precipitation_probability": 18,
+      "description": "Slight Chance Rain Showers"
+    },
+    {
+      "time": "Aug 18, 4:00 PM",
+      "temperature": 82,
+      "precipitation_probability": 18,
+      "description": "Slight Chance Rain Showers"
+    },
+    {
+      "time": "Aug 18, 5:00 PM",
+      "temperature": 81,
+      "precipitation_probability": 18,
+      "description": "Slight Chance Rain Showers"
+    },
+    {
+      "time": "Aug 18, 6:00 PM",
+      "temperature": 80,
+      "precipitation_probability": 18,
+      "description": "Slight Chance Rain Showers"
+    },
+    {
+      "time": "Aug 18, 7:00 PM",
+      "temperature": 78,
+      "precipitation_probability": 18,
+      "description": "Slight Chance Rain Showers"
+    },
+    {
+      "time": "Aug 18, 8:00 PM",
+      "temperature": 77,
+      "precipitation_probability": 19,
+      "description": "Slight Chance Rain Showers"
+    },
+    {
+      "time": "Aug 18, 9:00 PM",
+      "temperature": 76,
+      "precipitation_probability": 19,
+      "description": "Slight Chance Rain Showers"
+    },
+    {
+      "time": "Aug 18, 10:00 PM",
+      "temperature": 75,
+      "precipitation_probability": 19,
+      "description": "Slight Chance Rain Showers"
+    },
+    {
+      "time": "Aug 18, 11:00 PM",
+      "temperature": 74,
+      "precipitation_probability": 19,
+      "description": "Slight Chance Rain Showers"
+    },
+    {
+      "time": "Aug 19, 12:00 AM",
+      "temperature": 73,
+      "precipitation_probability": 19,
+      "description": "Slight Chance Rain Showers"
+    },
+    {
+      "time": "Aug 19, 1:00 AM",
+      "temperature": 73,
+      "precipitation_probability": 19,
+      "description": "Slight Chance Rain Showers"
+    },
+    {
+      "time": "Aug 19, 2:00 AM",
+      "temperature": 72,
+      "precipitation_probability": 19,
+      "description": "Slight Chance Rain Showers"
+    },
+    {
+      "time": "Aug 19, 3:00 AM",
+      "temperature": 71,
+      "precipitation_probability": 19,
+      "description": "Slight Chance Rain Showers"
+    },
+    {
+      "time": "Aug 19, 4:00 AM",
+      "temperature": 70,
+      "precipitation_probability": 19,
+      "description": "Slight Chance Rain Showers"
+    },
+    {
+      "time": "Aug 19, 5:00 AM",
+      "temperature": 69,
+      "precipitation_probability": 19,
+      "description": "Slight Chance Rain Showers"
+    },
+    {
+      "time": "Aug 19, 6:00 AM",
+      "temperature": 69,
+      "precipitation_probability": 19,
+      "description": "Slight Chance Rain Showers"
+    },
+    {
+      "time": "Aug 19, 7:00 AM",
+      "temperature": 70,
+      "precipitation_probability": 19,
+      "description": "Slight Chance Rain Showers"
+    },
+    {
+      "time": "Aug 19, 8:00 AM",
+      "temperature": 71,
+      "precipitation_probability": 14,
+      "description": "Mostly Sunny"
+    },
+    {
+      "time": "Aug 19, 9:00 AM",
+      "temperature": 73,
+      "precipitation_probability": 14,
+      "description": "Mostly Sunny"
+    },
+    {
+      "time": "Aug 19, 10:00 AM",
+      "temperature": 74,
+      "precipitation_probability": 14,
+      "description": "Mostly Sunny"
+    },
+    {
+      "time": "Aug 19, 11:00 AM",
+      "temperature": 76,
+      "precipitation_probability": 14,
+      "description": "Mostly Sunny"
+    },
+    {
+      "time": "Aug 19, 12:00 PM",
+      "temperature": 77,
+      "precipitation_probability": 14,
+      "description": "Mostly Sunny"
+    },
+    {
+      "time": "Aug 19, 1:00 PM",
+      "temperature": 78,
+      "precipitation_probability": 14,
+      "description": "Mostly Sunny"
+    },
+    {
+      "time": "Aug 19, 2:00 PM",
+      "temperature": 78,
+      "precipitation_probability": 18,
+      "description": "Slight Chance Rain Showers"
+    },
+    {
+      "time": "Aug 19, 3:00 PM",
+      "temperature": 78,
+      "precipitation_probability": 18,
+      "description": "Slight Chance Rain Showers"
+    }
+  ]
+}

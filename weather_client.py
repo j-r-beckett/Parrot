@@ -1,7 +1,9 @@
 from config import AppSettings
 import httpx
+import json
 from typing import Any
 from logging import Logger
+from schemas import HourlyForecast, SemidiurnalForecast
 
 
 class WeatherClient:
@@ -58,6 +60,17 @@ class WeatherClient:
         with open("/home/jimmy/repos/clanker/forecast.txt", "w") as f:
             f.write(forecast_response.text)
         logger.info("Wrote forecast response to forecast.txt")
+        
+        # Parse hourly forecast using schema
+        forecast_data = forecast_response.json()
+        hourly_forecast = HourlyForecast.from_nws_response(
+            forecast_data["properties"]["periods"]
+        )
+        
+        # Write typed hourly forecast as JSON
+        with open("/home/jimmy/repos/clanker/typed_forecast.txt", "w") as f:
+            json.dump(hourly_forecast.model_dump(), f, indent=2)
+        logger.info("Wrote typed hourly forecast to typed_forecast.txt")
 
         # Step 3: Get 12-hour forecast (daily/nightly periods)
         forecast_12_response = await self.client.get(
@@ -68,6 +81,17 @@ class WeatherClient:
         with open("/home/jimmy/repos/clanker/forecast_12.txt", "w") as f:
             f.write(forecast_12_response.text)
         logger.info("Wrote 12-hour forecast response to forecast_12.txt")
+        
+        # Parse semidiurnal forecast using schema
+        forecast_12_data = forecast_12_response.json()
+        semidiurnal_forecast = SemidiurnalForecast.from_nws_response(
+            forecast_12_data["properties"]["periods"]
+        )
+        
+        # Write typed semidiurnal forecast as JSON
+        with open("/home/jimmy/repos/clanker/typed_forecast_12.txt", "w") as f:
+            json.dump(semidiurnal_forecast.model_dump(), f, indent=2)
+        logger.info("Wrote typed semidiurnal forecast to typed_forecast_12.txt")
 
         if forecast_response.status_code == 404:
             raise ValueError(
