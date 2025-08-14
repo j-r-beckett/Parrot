@@ -1,0 +1,88 @@
+{
+  "forecasts": [
+    {
+      "time": "Wednesday Aug 13, 3:00 PM",
+      "temperature": "89F",
+      "precipitation_probability": "47%",
+      "description": "A chance of showers and thunderstorms. Mostly sunny. High near 89, with temperatures falling to around 86 in the afternoon. South wind around 9 mph. Chance of precipitation is 50%. New rainfall amounts between a tenth and quarter of an inch possible."
+    },
+    {
+      "time": "Wednesday Aug 13, 6:00 PM",
+      "temperature": "74F",
+      "precipitation_probability": "64%",
+      "description": "A chance of showers and thunderstorms before 8pm, then showers and thunderstorms likely between 8pm and 2am, then patchy fog and a chance of showers and thunderstorms. Mostly cloudy, with a low around 74. South wind 3 to 7 mph. Chance of precipitation is 60%. New rainfall amounts between a quarter and half of an inch possible."
+    },
+    {
+      "time": "Thursday Aug 14, 6:00 AM",
+      "temperature": "88F",
+      "precipitation_probability": "49%",
+      "description": "Patchy fog and a chance of showers and thunderstorms before 2pm, then a chance of showers and thunderstorms. Mostly cloudy. High near 88, with temperatures falling to around 84 in the afternoon. Northwest wind around 6 mph. Chance of precipitation is 50%. New rainfall amounts between a tenth and quarter of an inch possible."
+    },
+    {
+      "time": "Thursday Aug 14, 6:00 PM",
+      "temperature": "73F",
+      "precipitation_probability": "49%",
+      "description": "A chance of showers and thunderstorms before 2am. Partly cloudy, with a low around 73. North wind 3 to 7 mph. Chance of precipitation is 50%. New rainfall amounts between a tenth and quarter of an inch possible."
+    },
+    {
+      "time": "Friday Aug 15, 6:00 AM",
+      "temperature": "87F",
+      "precipitation_probability": "14%",
+      "description": "Sunny. High near 87, with temperatures falling to around 85 in the afternoon. East wind around 9 mph."
+    },
+    {
+      "time": "Friday Aug 15, 6:00 PM",
+      "temperature": "71F",
+      "precipitation_probability": "14%",
+      "description": "Partly cloudy, with a low around 71."
+    },
+    {
+      "time": "Saturday Aug 16, 6:00 AM",
+      "temperature": "85F",
+      "precipitation_probability": "13%",
+      "description": "Mostly sunny, with a high near 85."
+    },
+    {
+      "time": "Saturday Aug 16, 6:00 PM",
+      "temperature": "71F",
+      "precipitation_probability": "12%",
+      "description": "Mostly clear, with a low around 71."
+    },
+    {
+      "time": "Sunday Aug 17, 6:00 AM",
+      "temperature": "91F",
+      "precipitation_probability": "19%",
+      "description": "A slight chance of rain showers after 2pm. Mostly sunny, with a high near 91."
+    },
+    {
+      "time": "Sunday Aug 17, 6:00 PM",
+      "temperature": "72F",
+      "precipitation_probability": "23%",
+      "description": "A slight chance of rain showers before 8pm, then a slight chance of showers and thunderstorms. Mostly cloudy, with a low around 72."
+    },
+    {
+      "time": "Monday Aug 18, 6:00 AM",
+      "temperature": "86F",
+      "precipitation_probability": "18%",
+      "description": "A slight chance of rain showers before 8am, then a slight chance of showers and thunderstorms. Mostly sunny, with a high near 86."
+    },
+    {
+      "time": "Monday Aug 18, 6:00 PM",
+      "temperature": "66F",
+      "precipitation_probability": "20%",
+      "description": "A slight chance of showers and thunderstorms. Partly cloudy, with a low around 66."
+    },
+    {
+      "time": "Tuesday Aug 19, 6:00 AM",
+      "temperature": "84F",
+      "precipitation_probability": "25%",
+      "description": "A slight chance of rain showers before 8am, then a slight chance of showers and thunderstorms between 8am and 2pm, then a chance of showers and thunderstorms. Mostly sunny, with a high near 84. Chance of precipitation is 30%."
+    },
+    {
+      "time": "Tuesday Aug 19, 6:00 PM",
+      "temperature": "65F",
+      "precipitation_probability": "26%",
+      "description": "A chance of showers and thunderstorms. Mostly cloudy, with a low around 65."
+    }
+  ]
+}

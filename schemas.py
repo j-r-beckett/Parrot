@@ -28,31 +28,38 @@ class Forecast(BaseModel):
     """Individual forecast period data"""
 
     time: str  # Human readable time
-    temperature: int  # Fahrenheit
+    temperature: str  # Degrees Fahrenheit
     precipitation_probability: str  # Percentage
     description: str  # Human readable description of the forecast
 
     @classmethod
-    def from_nws_period(
-        cls, period: dict, verbosity: Literal["short", "detailed"]
-    ) -> "Forecast":
-        """Create a Forecast from NWS API period data
-
-        Args:
-            period: NWS API period object
-            verbosity: "short" for shortForecast, "detailed" for detailedForecast
-        """
-        # Convert ISO 8601 to US style time
-        dt = datetime.fromisoformat(period["startTime"])
-        time_str = dt.strftime("%b %d, %-I:%M %p")
-
+    def from_hourly_period(cls, period: dict) -> "Forecast":
         precip_prob = f"{period['probabilityOfPrecipitation']['value']}%"
+        temperature = f"{period['temperature']}F"
 
-        description = period[f"{verbosity}Forecast"]
+        raw_time = datetime.fromisoformat(period["startTime"])
+        time = raw_time.strftime("%A %b %d, %-I:%M %p")
+        description = period["shortForecast"]
 
         return cls(
-            time=time_str,
-            temperature=period["temperature"],
+            time=time,
+            temperature=temperature,
+            precipitation_probability=precip_prob,
+            description=description,
+        )
+
+    @classmethod
+    def from_12hour_period(cls, period: dict) -> "Forecast":
+        precip_prob = f"{period['probabilityOfPrecipitation']['value']}%"
+        temperature = f"{period['temperature']}F"
+
+        raw_time = datetime.fromisoformat(period["startTime"])
+        time = f"{raw_time.strftime('%b %d')}, {period['name']}"
+        description = period["detailedForecast"]
+
+        return cls(
+            time=time,
+            temperature=temperature,
             precipitation_probability=precip_prob,
             description=description,
         )
@@ -66,21 +73,17 @@ class HourlyForecast(BaseModel):
     @classmethod
     def from_nws_response(cls, periods: list) -> "HourlyForecast":
         """Create HourlyForecast from NWS API response periods"""
-        forecasts = [
-            Forecast.from_nws_period(period, verbosity="short") for period in periods
-        ]
+        forecasts = [Forecast.from_hourly_period(period) for period in periods]
         return cls(forecasts=forecasts)
 
 
-class SemidiurnalForecast(BaseModel):
-    """Schema for 12-hour (semidiurnal) forecast data from NWS"""
+class TwelveHourForecast(BaseModel):
+    """Schema for 12-hour forecast data from NWS"""
 
     forecasts: list[Forecast]
 
     @classmethod
-    def from_nws_response(cls, periods: list) -> "SemidiurnalForecast":
-        """Create SemidiurnalForecast from NWS API response periods"""
-        forecasts = [
-            Forecast.from_nws_period(period, verbosity="detailed") for period in periods
-        ]
+    def from_nws_response(cls, periods: list) -> "TwelveHourForecast":
+        """Create TwelveHourForecast from NWS API response periods"""
+        forecasts = [Forecast.from_12hour_period(period) for period in periods]
         return cls(forecasts=forecasts)

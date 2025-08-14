@@ -6,7 +6,7 @@ from config import settings
 from contextlib import asynccontextmanager
 from typing import AsyncGenerator
 from sms_gateway_client import SmsGatewayClient
-from schemas import SmsDelivered
+from schemas import SmsDelivered, HourlyForecast, TwelveHourForecast
 from llm_client import LlmClient
 from mirascope.core.base import Messages
 from weather_client import WeatherClient
@@ -77,34 +77,18 @@ async def test_llm(request: Request, llm_client: LlmClient) -> Response:
 )
 async def test_weather_hourly(
     request: Request, weather_client: WeatherClient, lat: float, lon: float
-) -> Response:
-    forecast = await weather_client.hourly_forecast(request.logger, lat, lon)
-    return Response(
-        content={
-            "temperature": forecast.forecasts[0].temperature,
-            "lat": lat,
-            "lon": lon,
-        },
-        status_code=HTTP_200_OK,
-    )
+) -> HourlyForecast:
+    return await weather_client.hourly_forecast(request.logger, lat, lon)
 
 
 @get(
-    "/testweather/semidiurnal",
+    "/testweather/12hour",
     dependencies={"weather_client": Provide(get_weather_client)},
 )
-async def test_weather_semidiurnal(
+async def test_weather_12hour(
     request: Request, weather_client: WeatherClient, lat: float, lon: float
-) -> Response:
-    forecast = await weather_client.semidiurnal_forecast(request.logger, lat, lon)
-    return Response(
-        content={
-            "temperature": forecast.forecasts[0].temperature,
-            "lat": lat,
-            "lon": lon,
-        },
-        status_code=HTTP_200_OK,
-    )
+) -> TwelveHourForecast:
+    return await weather_client.TwelveHour_forecast(request.logger, lat, lon)
 
 
 @asynccontextmanager
@@ -128,7 +112,7 @@ app = Litestar(
         webhook,
         test_llm,
         test_weather_hourly,
-        test_weather_semidiurnal,
+        test_weather_12hour,
     ],
     lifespan=[lifespan],
     debug=settings.debug,

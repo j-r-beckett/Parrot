@@ -1,9 +1,7 @@
 from config import AppSettings
 import httpx
-import json
-from typing import Any
 from logging import Logger
-from schemas import HourlyForecast, SemidiurnalForecast
+from schemas import HourlyForecast, TwelveHourForecast
 
 
 class WeatherClient:
@@ -52,9 +50,9 @@ class WeatherClient:
 
         return HourlyForecast.from_nws_response(forecast_data["properties"]["periods"])
 
-    async def semidiurnal_forecast(
+    async def TwelveHour_forecast(
         self, logger: Logger, lat: float, lon: float
-    ) -> SemidiurnalForecast:
+    ) -> TwelveHourForecast:
         grid_id, grid_x, grid_y = await self._get_grid_info(lat, lon)
 
         forecast_response = await self.client.get(
@@ -64,6 +62,8 @@ class WeatherClient:
         forecast_response.raise_for_status()
         forecast_data = forecast_response.json()
 
-        return SemidiurnalForecast.from_nws_response(
+        logger.info("Resp: %s", forecast_response.json()["properties"]["periods"][0])
+
+        return TwelveHourForecast.from_nws_response(
             forecast_data["properties"]["periods"]
         )
