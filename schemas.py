@@ -29,7 +29,7 @@ class Forecast(BaseModel):
 
     time: str  # Human readable time
     temperature: int  # Fahrenheit
-    precipitation_probability: int  # Percentage
+    precipitation_probability: str  # Percentage
     description: str  # Human readable description of the forecast
 
     @classmethod
@@ -46,7 +46,7 @@ class Forecast(BaseModel):
         dt = datetime.fromisoformat(period["startTime"])
         time_str = dt.strftime("%b %d, %-I:%M %p")
 
-        precip_prob = period["probabilityOfPrecipitation"]["value"]
+        precip_prob = f"{period['probabilityOfPrecipitation']['value']}%"
 
         description = period[f"{verbosity}Forecast"]
 
