@@ -11,6 +11,7 @@ from mirascope.core.base import Messages
 from weather_client import WeatherClient
 from weather_tools import forecast_tool
 from assistant import Assistant
+from nominatim_client import NominatimClient
 
 
 async def get_sms_gateway_client(state: State) -> SmsGatewayClient:
@@ -19,6 +20,10 @@ async def get_sms_gateway_client(state: State) -> SmsGatewayClient:
 
 async def get_weather_client(state: State) -> WeatherClient:
     return state.weather_client
+
+
+async def get_nominatim_client(state: State) -> NominatimClient:
+    return state.nominatim_client
 
 
 @get(
@@ -81,6 +86,13 @@ async def test_agent(request: Request, weather_client: WeatherClient, q: str) ->
     return assistant.step(q)
 
 
+@get("/testgeocoding", dependencies={"nominatim_client": Provide(get_nominatim_client)})
+async def test_geocoding(
+    request: Request, nominatim_client: NominatimClient, text: str
+) -> tuple[float, float]:
+    return await nominatim_client.geocode(text)
+
+
 @asynccontextmanager
 async def lifespan(app: Litestar) -> AsyncGenerator[None, None]:
     async with (
@@ -88,9 +100,11 @@ async def lifespan(app: Litestar) -> AsyncGenerator[None, None]:
             settings, {"sms:delivered": "/webhooks/delivered"}
         ) as sms_gateway_client,
         WeatherClient(settings) as weather_client,
+        NominatimClient(settings) as nominatim_client,
     ):
         app.state.sms_gateway_client = sms_gateway_client
         app.state.weather_client = weather_client
+        app.state.nominatim_client = nominatim_client
         yield
 
 
@@ -102,6 +116,7 @@ app = Litestar(
         test_weather_hourly,
         test_weather_12hour,
         test_agent,
+        test_geocoding,
     ],
     lifespan=[lifespan],
     debug=settings.debug,
