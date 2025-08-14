@@ -1,0 +1,88 @@
+{
+  "forecasts": [
+    {
+      "time": "Aug 14, Overnight",
+      "temperature": "73F",
+      "precipitation_probability": "22%",
+      "description": "A slight chance of rain showers after 5am. Mostly cloudy. Low around 73, with temperatures rising to around 75 overnight. West wind around 3 mph. Chance of precipitation is 20%."
+    },
+    {
+      "time": "Aug 14, Thursday",
+      "temperature": "89F",
+      "precipitation_probability": "44%",
+      "description": "A slight chance of rain showers before 8am, then a chance of showers and thunderstorms. Partly sunny. High near 89, with temperatures falling to around 86 in the afternoon. North wind around 6 mph. Chance of precipitation is 40%. New rainfall amounts between a tenth and quarter of an inch possible."
+    },
+    {
+      "time": "Aug 14, Thursday Night",
+      "temperature": "73F",
+      "precipitation_probability": "34%",
+      "description": "A chance of showers and thunderstorms before 8pm. Partly cloudy. Low around 73, with temperatures rising to around 75 overnight. Northwest wind around 6 mph. Chance of precipitation is 30%. New rainfall amounts less than a tenth of an inch possible."
+    },
+    {
+      "time": "Aug 15, Friday",
+      "temperature": "86F",
+      "precipitation_probability": "15%",
+      "description": "A slight chance of rain showers after 2pm. Sunny. High near 86, with temperatures falling to around 84 in the afternoon. East wind 7 to 10 mph. Chance of precipitation is 20%."
+    },
+    {
+      "time": "Aug 15, Friday Night",
+      "temperature": "71F",
+      "precipitation_probability": "15%",
+      "description": "A slight chance of rain showers before 8pm. Partly cloudy, with a low around 71. East wind 5 to 9 mph. Chance of precipitation is 20%."
+    },
+    {
+      "time": "Aug 16, Saturday",
+      "temperature": "84F",
+      "precipitation_probability": "11%",
+      "description": "Mostly sunny. High near 84, with temperatures falling to around 82 in the afternoon."
+    },
+    {
+      "time": "Aug 16, Saturday Night",
+      "temperature": "71F",
+      "precipitation_probability": "11%",
+      "description": "Mostly clear, with a low around 71."
+    },
+    {
+      "time": "Aug 17, Sunday",
+      "temperature": "91F",
+      "precipitation_probability": "20%",
+      "description": "A slight chance of showers and thunderstorms after 2pm. Sunny, with a high near 91."
+    },
+    {
+      "time": "Aug 17, Sunday Night",
+      "temperature": "72F",
+      "precipitation_probability": "25%",
+      "description": "A chance of showers and thunderstorms. Partly cloudy, with a low around 72. Chance of precipitation is 30%."
+    },
+    {
+      "time": "Aug 18, Monday",
+      "temperature": "84F",
+      "precipitation_probability": "23%",
+      "description": "A slight chance of rain showers before 8am, then a slight chance of showers and thunderstorms. Mostly sunny, with a high near 84."
+    },
+    {
+      "time": "Aug 18, Monday Night",
+      "temperature": "68F",
+      "precipitation_probability": "23%",
+      "description": "A slight chance of showers and thunderstorms. Mostly cloudy, with a low around 68."
+    },
+    {
+      "time": "Aug 19, Tuesday",
+      "temperature": "81F",
+      "precipitation_probability": "21%",
+      "description": "A slight chance of rain showers. Partly sunny, with a high near 81."
+    },
+    {
+      "time": "Aug 19, Tuesday Night",
+      "temperature": "68F",
+      "precipitation_probability": "24%",
+      "description": "A slight chance of rain showers before 8pm, then a slight chance of showers and thunderstorms. Partly cloudy, with a low around 68."
+    },
+    {
+      "time": "Aug 20, Wednesday",
+      "temperature": "82F",
+      "precipitation_probability": "27%",
+      "description": "A slight chance of rain showers before 2pm, then a chance of showers and thunderstorms. Mostly sunny, with a high near 82."
+    }
+  ]
+}

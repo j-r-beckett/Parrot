@@ -77,13 +77,26 @@ async def test_weather_hourly(
 async def test_weather_12hour(
     request: Request, weather_client: WeatherClient, lat: float, lon: float
 ) -> TwelveHourForecast:
-    return await weather_client.TwelveHour_forecast(request.logger, lat, lon)
+    return await weather_client.twelveHour_forecast(request.logger, lat, lon)
 
 
-@get("/testagent", dependencies={"weather_client": Provide(get_weather_client)})
-async def test_agent(request: Request, weather_client: WeatherClient, q: str) -> str:
-    assistant = Assistant([forecast_tool(weather_client)])
-    return assistant.step(q)
+@get(
+    "/testagent",
+    dependencies={
+        "weather_client": Provide(get_weather_client),
+        "nominatim_client": Provide(get_nominatim_client),
+    },
+)
+async def test_agent(
+    request: Request,
+    weather_client: WeatherClient,
+    nominatim_client: NominatimClient,
+    q: str,
+) -> str:
+    assistant = Assistant(
+        [forecast_tool(weather_client, nominatim_client)], request.logger
+    )
+    return await assistant.step(q)
 
 
 @get("/testgeocoding", dependencies={"nominatim_client": Provide(get_nominatim_client)})

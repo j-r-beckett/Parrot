@@ -50,7 +50,7 @@ class WeatherClient:
 
         return HourlyForecast.from_nws_response(forecast_data["properties"]["periods"])
 
-    async def TwelveHour_forecast(
+    async def twelveHour_forecast(
         self, logger: Logger, lat: float, lon: float
     ) -> TwelveHourForecast:
         grid_id, grid_x, grid_y = await self._get_grid_info(lat, lon)
