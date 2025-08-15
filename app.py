@@ -7,9 +7,9 @@ from contextlib import asynccontextmanager
 from typing import AsyncGenerator
 from sms_gateway_client import SmsGatewayClient
 from schemas import SmsDelivered, HourlyForecast, TwelveHourForecast
-from mirascope.core.base import Messages
 from weather_client import WeatherClient
 from weather_tools import forecast_tool
+from datetime_tools import datetime_tool
 from assistant import Assistant
 from nominatim_client import NominatimClient
 
@@ -94,7 +94,11 @@ async def test_agent(
     q: str,
 ) -> str:
     assistant = Assistant(
-        [forecast_tool(weather_client, nominatim_client)], request.logger
+        [
+            forecast_tool(weather_client, nominatim_client, request.logger),
+            datetime_tool(nominatim_client),
+        ],
+        request.logger,
     )
     return await assistant.step(q)
 

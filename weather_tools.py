@@ -1,12 +1,12 @@
 from weather_client import WeatherClient
 from nominatim_client import NominatimClient
 from decorators import add_docstring
-from logging import getLogger
-
-logger = getLogger(__name__)
+from logging import Logger
 
 
-def forecast_tool(weather_client: WeatherClient, nominatim_client: NominatimClient):
+def forecast_tool(
+    weather_client: WeatherClient, nominatim_client: NominatimClient, logger: Logger
+):
     description = "Returns a weather forecast formatted as JSON."
 
     @add_docstring(description)
