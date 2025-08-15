@@ -4,14 +4,16 @@ from litestar.di import Provide
 from litestar.status_codes import HTTP_200_OK, HTTP_503_SERVICE_UNAVAILABLE
 from config import settings
 from contextlib import asynccontextmanager
-from typing import AsyncGenerator
+from typing import AsyncGenerator, Literal
 from sms_gateway_client import SmsGatewayClient
-from schemas import SmsDelivered, HourlyForecast, TwelveHourForecast
+from schemas import SmsDelivered, HourlyForecast, TwelveHourForecast, Directions
 from weather_client import WeatherClient
 from weather_tools import forecast_tool
 from datetime_tools import datetime_tool
+from navigation_tools import navigation_tool
 from assistant import Assistant
 from nominatim_client import NominatimClient
+from valhalla_client import ValhallaClient
 
 
 async def get_sms_gateway_client(state: State) -> SmsGatewayClient:
@@ -24,6 +26,10 @@ async def get_weather_client(state: State) -> WeatherClient:
 
 async def get_nominatim_client(state: State) -> NominatimClient:
     return state.nominatim_client
+
+
+async def get_valhalla_client(state: State) -> ValhallaClient:
+    return state.valhalla_client
 
 
 @get(
@@ -85,18 +91,21 @@ async def test_weather_12hour(
     dependencies={
         "weather_client": Provide(get_weather_client),
         "nominatim_client": Provide(get_nominatim_client),
+        "valhalla_client": Provide(get_valhalla_client),
     },
 )
 async def test_agent(
     request: Request,
     weather_client: WeatherClient,
     nominatim_client: NominatimClient,
+    valhalla_client: ValhallaClient,
     q: str,
 ) -> str:
     assistant = Assistant(
         [
             forecast_tool(weather_client, nominatim_client, request.logger),
             datetime_tool(nominatim_client),
+            navigation_tool(valhalla_client, nominatim_client),
         ],
         request.logger,
     )
@@ -110,6 +119,32 @@ async def test_geocoding(
     return await nominatim_client.geocode(text)
 
 
+@get(
+    "/testnav",
+    dependencies={
+        "valhalla_client": Provide(get_valhalla_client),
+        "nominatim_client": Provide(get_nominatim_client),
+    },
+)
+async def test_nav(
+    request: Request,
+    valhalla_client: ValhallaClient,
+    nominatim_client: NominatimClient,
+    start: str,
+    end: str,
+    mode: Literal["drive", "walk", "bike", "transit"] = "drive",
+) -> Directions:
+    # Geocode the start and end locations
+    start_coords = await nominatim_client.geocode(start)
+    end_coords = await nominatim_client.geocode(end)
+
+    return await valhalla_client.directions(
+        start=start_coords,
+        end=end_coords,
+        mode=mode,
+    )
+
+
 @asynccontextmanager
 async def lifespan(app: Litestar) -> AsyncGenerator[None, None]:
     async with (
@@ -118,10 +153,12 @@ async def lifespan(app: Litestar) -> AsyncGenerator[None, None]:
         ) as sms_gateway_client,
         WeatherClient(settings) as weather_client,
         NominatimClient(settings) as nominatim_client,
+        ValhallaClient() as valhalla_client,
     ):
         app.state.sms_gateway_client = sms_gateway_client
         app.state.weather_client = weather_client
         app.state.nominatim_client = nominatim_client
+        app.state.valhalla_client = valhalla_client
         yield
 
 
@@ -134,6 +171,7 @@ app = Litestar(
         test_weather_12hour,
         test_agent,
         test_geocoding,
+        test_nav,
     ],
     lifespan=[lifespan],
     debug=settings.debug,
