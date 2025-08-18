@@ -1,9 +1,9 @@
 import httpx
-from config import AppSettings
+from dynaconf import Dynaconf
 
 
 class NominatimClient:
-    def __init__(self, settings: AppSettings):
+    def __init__(self, settings: Dynaconf):
         self.client = None
         self.settings = settings
 

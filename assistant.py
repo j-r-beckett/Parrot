@@ -28,7 +28,7 @@ class Assistant:
         ]
 
     @anthropic.call(
-        model=settings.model_name,
+        model=settings.llm.model_name,
         call_params=anthropic.AnthropicCallParams(
             max_tokens=2048, thinking={"type": "enabled", "budget_tokens": 1024}
         ),

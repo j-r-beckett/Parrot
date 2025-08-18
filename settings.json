@@ -1,0 +1,19 @@
+{
+  "debug": false,
+  "sms_gateway": {
+    "url": "http://192.168.0.21:8080",
+    "username": "apiuser",
+    "password": "@format {env[CLANKER_SMS_GATEWAY_PASSWORD]}"
+  },
+  "llm": {
+    "model_name": "claude-sonnet-4-20250514"
+  },
+  "webhook": {
+    "base_url": "http://192.168.0.17:8000"
+  },
+  "nws": {
+    "api_url": "https://api.weather.gov",
+    "user_agent": "clanker-0.1"
+  },
+  "anthropic_api_key": "@format {env[CLANKER_ANTHROPIC_API_KEY]}"
+}

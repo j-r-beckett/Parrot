@@ -13,4 +13,5 @@ dependencies = [
     "uvicorn>=0.35.0",
     "timezonefinder>=6.5.2",
     "pytz>=2024.2",
+    "dynaconf>=3.2.11",
 ]
