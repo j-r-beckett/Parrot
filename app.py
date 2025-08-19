@@ -5,7 +5,8 @@ from litestar.status_codes import HTTP_200_OK, HTTP_503_SERVICE_UNAVAILABLE
 from config import settings
 from contextlib import asynccontextmanager
 from typing import AsyncGenerator, Literal
-from sms_gateway_client import SmsGatewayClient
+import httpx
+import sms_gateway_functions as sms
 from schemas import SmsDelivered, HourlyForecast, TwelveHourForecast, Directions
 from weather_client import WeatherClient
 from weather_tools import forecast_tool
@@ -16,8 +17,12 @@ from nominatim_client import NominatimClient
 from valhalla_client import ValhallaClient
 
 
-async def get_sms_gateway_client(state: State) -> SmsGatewayClient:
-    return state.sms_gateway_client
+async def get_sms_client(state: State) -> httpx.AsyncClient:
+    return state.sms_client
+
+
+async def get_webhook_events(state: State) -> dict:
+    return state.webhook_events
 
 
 async def get_weather_client(state: State) -> WeatherClient:
@@ -35,12 +40,13 @@ async def get_valhalla_client(state: State) -> ValhallaClient:
 @get(
     path="/health",
     dependencies={
-        "sms_gateway_client": Provide(get_sms_gateway_client),
+        "sms_client": Provide(get_sms_client),
+        "webhook_events": Provide(get_webhook_events),
     },
 )
-async def health(request: Request, sms_gateway_client: SmsGatewayClient) -> Response:
-    gateway_health, gateway_health_info = await sms_gateway_client.gateway_health()
-    webhook_health, webhook_health_info = await sms_gateway_client.webhook_health()
+async def health(request: Request, sms_client: httpx.AsyncClient, webhook_events: dict) -> Response:
+    gateway_health, gateway_health_info = await sms.gateway_health(sms_client)
+    webhook_health, webhook_health_info = await sms.webhook_health(sms_client, webhook_events)
 
     is_healthy = gateway_health and webhook_health
 
@@ -54,10 +60,10 @@ async def health(request: Request, sms_gateway_client: SmsGatewayClient) -> Resp
     )
 
 
-@get("/testsms", dependencies={"sms_gateway_client": Provide(get_sms_gateway_client)})
-async def test_sms(request: Request, sms_gateway_client: SmsGatewayClient) -> Response:
-    await sms_gateway_client.send_sms(
-        "hello there 3", settings.sms.settler.number, request.logger
+@get("/testsms", dependencies={"sms_client": Provide(get_sms_client)})
+async def test_sms(request: Request, sms_client: httpx.AsyncClient) -> Response:
+    await sms.send_sms(
+        sms_client, "hello there 3", settings.sms.settler.number, request.logger
     )
 
     return Response(content="sent sms", status_code=HTTP_200_OK)
@@ -150,15 +156,20 @@ async def test_nav(
 
 @asynccontextmanager
 async def lifespan(app: Litestar) -> AsyncGenerator[None, None]:
+    webhook_events = {"sms:delivered": "/webhooks/delivered"}
+    sms_client = sms.create_sms_client(settings.sms.settler)
+    
     async with (
-        SmsGatewayClient(
-            settings.sms.settler, {"sms:delivered": "/webhooks/delivered"}
-        ) as sms_gateway_client,
+        sms_client,
         WeatherClient(settings.nws) as weather_client,
         NominatimClient(settings.nominatim) as nominatim_client,
         ValhallaClient() as valhalla_client,
     ):
-        app.state.sms_gateway_client = sms_gateway_client
+        # Initialize webhooks
+        await sms.init_webhooks(sms_client, webhook_events)
+        
+        app.state.sms_client = sms_client
+        app.state.webhook_events = webhook_events
         app.state.weather_client = weather_client
         app.state.nominatim_client = nominatim_client
         app.state.valhalla_client = valhalla_client
