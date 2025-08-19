@@ -143,27 +143,29 @@ async def lifespan(app: Litestar) -> AsyncGenerator[None, None]:
 
     async def on_received(data: SmsReceived) -> None:
         app.logger.info("SMS received: %s", data)
-        
+
         # Create assistant with tools
         assistant = Assistant(
             [
-                forecast_tool(app.state.weather_client, app.state.nominatim_client, app.logger),
+                forecast_tool(
+                    app.state.weather_client, app.state.nominatim_client, app.logger
+                ),
                 datetime_tool(app.state.nominatim_client),
                 navigation_tool(app.state.valhalla_client, app.state.nominatim_client),
             ],
             app.logger,
             settings.llm,
         )
-        
+
         # Process the incoming SMS and generate a response
         response = await assistant.step(data.payload.message)
-        
+
         # Send the response back via SMS
         await send_sms(
             app.state.sms_gateway_client,
             response,
             data.payload.phone_number,
-            app.logger
+            app.logger,
         )
 
     async with (

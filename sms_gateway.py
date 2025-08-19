@@ -68,7 +68,9 @@ async def init_webhooks(
 
         @post(f"{route_prefix}/received")
         async def hook(request: Request, data: SmsReceived) -> str:
-            await on_received(data)
+            import asyncio
+
+            asyncio.create_task(on_received(data))
             return ""
 
         registrar(hook)
