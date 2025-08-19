@@ -1,7 +1,7 @@
 from litestar import Request, post
 import httpx
 from typing import Callable, Optional, Any, Awaitable
-from schemas import SmsDelivered
+from schemas import SmsDelivered, SmsReceived
 import uuid
 from dynaconf.utils.boxing import DynaBox
 from logging import Logger
@@ -37,7 +37,8 @@ async def init_webhooks(
     registrar: Callable[[Any], None],
     route_prefix: str,
     webhook_target_url: str,
-    on_delivered: Optional[Callable[[SmsDelivered], Awaitable[None]]],
+    on_delivered: Optional[Callable[[SmsDelivered], Awaitable[None]]] = None,
+    on_received: Optional[Callable[[Any], Awaitable[None]]] = None,
 ) -> None:
     # get active webhooks
     get_webhooks_response = await gateway_client.get("/webhooks")
@@ -58,6 +59,16 @@ async def init_webhooks(
         @post(f"{route_prefix}/delivered")
         async def hook(request: Request, data: SmsDelivered) -> str:
             await on_delivered(data)
+            return ""
+
+        registrar(hook)
+
+    if on_received:
+        events.append(("sms:received", f"{route_prefix}/received"))
+
+        @post(f"{route_prefix}/received")
+        async def hook(request: Request, data: SmsReceived) -> str:
+            await on_received(data)
             return ""
 
         registrar(hook)

@@ -18,10 +18,25 @@ class SmsDelivered(BaseModel):
     model_config = ConfigDict(alias_generator=to_camel, populate_by_name=True)
 
     device_id: str
-    event: WebhookEventType
     id: str
     payload: SmsDeliveredPayload
-    webhook_id: str
+
+
+class SmsReceivedPayload(BaseModel):
+    model_config = ConfigDict(alias_generator=to_camel, populate_by_name=True)
+
+    message: str
+    received_at: str
+    message_id: str
+    phone_number: str
+
+
+class SmsReceived(BaseModel):
+    model_config = ConfigDict(alias_generator=to_camel, populate_by_name=True)
+
+    device_id: str
+    id: str
+    payload: SmsReceivedPayload
 
 
 class Forecast(BaseModel):
