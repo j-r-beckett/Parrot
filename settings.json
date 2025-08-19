@@ -1,12 +1,22 @@
 {
-  "debug": false,
-  "sms_gateway": {
-    "url": "http://192.168.0.21:8080",
-    "username": "apiuser",
-    "password": "@format {env[CLANKER_SMS_GATEWAY_PASSWORD]}"
+  "debug": true,
+  "sms": {
+    "settler": {
+      "url": "http://192.168.0.16:8080",
+      "username": "sms",
+      "password": "@format {env[CLANKER_SMS_GATEWAY_SETTLER_PASSWORD]}",
+      "number": "@format {env[CLANKER_SMS_GATEWAY_SETTLER_NUMBER]}"
+    },
+    "nomad": {
+      "url": "http://192.168.0.15:8080",
+      "username": "sms",
+      "password": "@format {env[CLANKER_SMS_GATEWAY_NOMAD_PASSWORD]}",
+      "number": "@format {env[CLANKER_SMS_GATEWAY_NOMAD_NUMBER]}"
+    }
   },
   "llm": {
-    "model_name": "claude-sonnet-4-20250514"
+    "max_tokens": 2048,
+    "api_key": "@format {env[CLANKER_ANTHROPIC_API_KEY]}"
   },
   "webhook": {
     "base_url": "http://192.168.0.17:8000"
@@ -15,5 +25,8 @@
     "api_url": "https://api.weather.gov",
     "user_agent": "clanker-0.1"
   },
-  "anthropic_api_key": "@format {env[CLANKER_ANTHROPIC_API_KEY]}"
+  "nominatim": {
+    "api_url": "https://nominatim.openstreetmap.org",
+    "user_agent": "clanker-0.1"
+  }
 }

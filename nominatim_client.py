@@ -1,16 +1,16 @@
 import httpx
-from dynaconf import Dynaconf
+from dynaconf.utils.boxing import DynaBox
 
 
 class NominatimClient:
-    def __init__(self, settings: Dynaconf):
+    def __init__(self, nominatim_config: DynaBox):
         self.client = None
-        self.settings = settings
+        self.config = nominatim_config
 
     async def __aenter__(self):
         self.client = httpx.AsyncClient(
-            base_url="https://nominatim.openstreetmap.org",
-            headers={"User-Agent": "Clanker/1.0"},
+            base_url=self.config.api_url,
+            headers={"User-Agent": self.config.user_agent},
             timeout=10.0,
             follow_redirects=True,
         )

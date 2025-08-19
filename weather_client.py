@@ -1,18 +1,18 @@
-from dynaconf import Dynaconf
+from dynaconf.utils.boxing import DynaBox
 import httpx
 from logging import Logger
 from schemas import HourlyForecast, TwelveHourForecast
 
 
 class WeatherClient:
-    def __init__(self, settings: Dynaconf):
+    def __init__(self, nws_config: DynaBox):
         self.client = None
-        self.settings = settings
+        self.config = nws_config
 
     async def __aenter__(self):
         self.client = httpx.AsyncClient(
-            base_url=self.settings.nws.api_url,
-            headers={"User-Agent": self.settings.nws.user_agent},
+            base_url=self.config.api_url,
+            headers={"User-Agent": self.config.user_agent},
             timeout=10.0,
             follow_redirects=True,
         )

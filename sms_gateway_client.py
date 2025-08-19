@@ -1,4 +1,4 @@
-from dynaconf import Dynaconf
+from dynaconf.utils.boxing import DynaBox
 import httpx
 from typing import Tuple, Any, List, Dict
 from litestar.status_codes import HTTP_200_OK
@@ -9,18 +9,18 @@ from schemas import WebhookEventType
 
 class SmsGatewayClient:
     def __init__(
-        self, settings: Dynaconf, webhook_events: Dict[WebhookEventType, str]
+        self, sms_config: DynaBox, webhook_events: Dict[WebhookEventType, str]
     ):
         self.client = None
         self.webhook_events = webhook_events
-        self.settings = settings
+        self.config = sms_config
 
     async def __aenter__(self):
         self.client = httpx.AsyncClient(
-            base_url=self.settings.sms_gateway.url,
+            base_url=self.config.url,
             auth=(
-                self.settings.sms_gateway.username,
-                self.settings.sms_gateway.password,
+                self.config.username,
+                self.config.password,
             ),
             timeout=5.0,
         )

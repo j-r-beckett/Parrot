@@ -1,14 +1,18 @@
 from mirascope import llm, BaseDynamicConfig, Messages, BaseMessageParam
 from mirascope.core import anthropic
-from config import settings
+from anthropic import AsyncAnthropic
+from dynaconf.utils.boxing import DynaBox
 from typing import List
 from logging import Logger
 
 
 class Assistant:
-    def __init__(self, tools, logger: Logger):
+    def __init__(self, tools, logger: Logger, llm_config: DynaBox):
         self.tools = tools
         self.logger = logger
+        self.llm_config = llm_config
+        # Create the client once during initialization
+        self.client = AsyncAnthropic(api_key=llm_config.api_key)
         self.messages: List[BaseMessageParam] = [
             Messages.System(
                 "You are a helpful, but efficient, assistant. Be as terse as possible, and convey "
@@ -27,20 +31,22 @@ class Assistant:
             )
         ]
 
-    @anthropic.call(
-        model=settings.llm.model_name,
-        call_params=anthropic.AnthropicCallParams(
-            max_tokens=2048, thinking={"type": "enabled", "budget_tokens": 1024}
-        ),
-    )
+    @anthropic.call(model="claude-sonnet-4-20250514")
     async def call(self) -> BaseDynamicConfig:
-        return {"messages": self.messages, "tools": self.tools}
+        return {
+            "messages": self.messages, 
+            "tools": self.tools,
+            "client": self.client,
+            "call_params": anthropic.AnthropicCallParams(
+                max_tokens=self.llm_config.max_tokens,
+                thinking={"type": "enabled", "budget_tokens": self.llm_config.max_tokens // 2}
+            ),
+        }
 
     async def step(self, query: str) -> str:
         if query:
             self.messages.append(Messages.User(query))
         response = await self.call()
-        self.logger.info("Received response: %s", response)
         self.messages.append(response.message_param)
         if response.tools:
             tool_call_results = []

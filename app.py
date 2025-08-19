@@ -56,7 +56,9 @@ async def health(request: Request, sms_gateway_client: SmsGatewayClient) -> Resp
 
 @get("/testsms", dependencies={"sms_gateway_client": Provide(get_sms_gateway_client)})
 async def test_sms(request: Request, sms_gateway_client: SmsGatewayClient) -> Response:
-    await sms_gateway_client.send_sms("hello there 2", "5123662653", request.logger)
+    await sms_gateway_client.send_sms(
+        "hello there 3", settings.sms.settler.number, request.logger
+    )
 
     return Response(content="sent sms", status_code=HTTP_200_OK)
 
@@ -108,6 +110,7 @@ async def test_agent(
             navigation_tool(valhalla_client, nominatim_client),
         ],
         request.logger,
+        settings.llm,
     )
     return await assistant.step(q)
 
@@ -149,10 +152,10 @@ async def test_nav(
 async def lifespan(app: Litestar) -> AsyncGenerator[None, None]:
     async with (
         SmsGatewayClient(
-            settings, {"sms:delivered": "/webhooks/delivered"}
+            settings.sms.settler, {"sms:delivered": "/webhooks/delivered"}
         ) as sms_gateway_client,
-        WeatherClient(settings) as weather_client,
-        NominatimClient(settings) as nominatim_client,
+        WeatherClient(settings.nws) as weather_client,
+        NominatimClient(settings.nominatim) as nominatim_client,
         ValhallaClient() as valhalla_client,
     ):
         app.state.sms_gateway_client = sms_gateway_client
