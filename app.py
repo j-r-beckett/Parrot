@@ -7,6 +7,7 @@ from contextlib import asynccontextmanager
 from typing import AsyncGenerator, Literal
 import httpx
 import sms_gateway_functions as sms
+from sms_webhooks import init_webhooks
 from schemas import SmsDelivered, HourlyForecast, TwelveHourForecast, Directions
 from weather_client import WeatherClient
 from weather_tools import forecast_tool
@@ -69,10 +70,6 @@ async def test_sms(request: Request, sms_client: httpx.AsyncClient) -> Response:
     return Response(content="sent sms", status_code=HTTP_200_OK)
 
 
-@post("/webhooks/delivered")
-async def webhook(request: Request, data: SmsDelivered) -> Response:
-    request.logger.info("received webhook: %s", data)
-    return Response(content="", status_code=HTTP_200_OK)
 
 
 @get(
@@ -156,8 +153,11 @@ async def test_nav(
 
 @asynccontextmanager
 async def lifespan(app: Litestar) -> AsyncGenerator[None, None]:
-    webhook_events = {"sms:delivered": "/webhooks/delivered"}
+    webhook_events = {}
     sms_client = sms.create_sms_client(settings.sms.settler)
+    
+    async def on_delivered(data: SmsDelivered) -> None:
+        app.logger.info("SMS delivered webhook received: %s", data)
     
     async with (
         sms_client,
@@ -165,8 +165,14 @@ async def lifespan(app: Litestar) -> AsyncGenerator[None, None]:
         NominatimClient(settings.nominatim) as nominatim_client,
         ValhallaClient() as valhalla_client,
     ):
-        # Initialize webhooks
-        await sms.init_webhooks(sms_client, webhook_events)
+        # Initialize webhooks using new sms_webhooks module
+        await init_webhooks(
+            client=sms_client,
+            registrar=app.register,
+            route_prefix="/webhooks/settler",
+            webhook_target_url=settings.sms.settler.webhook_target_url,
+            on_delivered=on_delivered,
+        )
         
         app.state.sms_client = sms_client
         app.state.webhook_events = webhook_events
@@ -180,7 +186,6 @@ app = Litestar(
     route_handlers=[
         health,
         test_sms,
-        webhook,
         test_weather_hourly,
         test_weather_12hour,
         test_agent,

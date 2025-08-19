@@ -5,7 +5,8 @@
       "url": "http://192.168.0.16:8080",
       "username": "sms",
       "password": "@format {env[CLANKER_SMS_GATEWAY_SETTLER_PASSWORD]}",
-      "number": "@format {env[CLANKER_SMS_GATEWAY_SETTLER_NUMBER]}"
+      "number": "@format {env[CLANKER_SMS_GATEWAY_SETTLER_NUMBER]}",
+      "webhook_target_url": "http://127.0.0.1:8000"
     },
     "nomad": {
       "url": "http://192.168.0.15:8080",
