@@ -6,22 +6,20 @@ from typing import List, Callable
 from collections.abc import Awaitable
 from logging import Logger
 import asyncio
-from asyncio import CancelledError
+from asyncio import CancelledError, QueueShutDown
 
 
-class Assistant:
+class ExperimentalAssistant:
     def __init__(
         self,
         tools,
         logger: Logger,
         process_outbound_msg: Callable[[str], Awaitable[str]],
-        cleanup: Callable[[], Awaitable[None]],
         llm_config: DynaBox,
     ):
         self.tools = tools
         self.logger = logger
         self.process_outbound_msg = process_outbound_msg
-        self.cleanup = cleanup
         self.llm_config = llm_config
         self.client = AsyncAnthropic(api_key=llm_config.api_key)
         self.messages: List[BaseMessageParam] = [
@@ -42,7 +40,7 @@ class Assistant:
             )
         ]
 
-        self.incoming_messages = asyncio.Queue()
+        self.in_queue = asyncio.Queue()
 
     @anthropic.call(model="claude-sonnet-4-20250514")
     async def _call(self) -> BaseDynamicConfig:
@@ -59,7 +57,7 @@ class Assistant:
             ),
         }
 
-    async def _step(self, query: str) -> str:
+    async def _llm_step(self, query: str) -> str:
         if query:
             self.messages.append(Messages.User(query))
         response = await self._call()
@@ -70,58 +68,59 @@ class Assistant:
                 result = await tool_call.call()
                 tool_call_results.append((tool_call, result))
             self.messages += response.tool_message_params(tool_call_results)
-            return await self._step("")
+            return await self._llm_step("")
         else:
             return response.content
 
-    async def submit_msg(self, msg: str):
-        await self.incoming_messages.put(msg)
-
     async def start(self):
-        await self._load_messages()
+        # todo: load messages from sqlite, append to self.messages
+        self.run_task = asyncio.create_task(self._run())
 
-        step_task = None
+    async def stop(self):
+        self.in_queue.shutdown()
+        await self.run_task
+        # todo: store self.messages in sqlite
 
-        while True:
-            new_message_task = asyncio.create_task(self.incoming_messages.get())
-            if step_task:
-                done, pending = await asyncio.wait(
-                    [step_task, new_message_task],
-                    return_when=asyncio.FIRST_COMPLETED,
-                )
-                if step_task in done:
-                    result = await step_task
-                    await self.process_outbound_msg(result)
-                    if new_message_task in done:
-                        msg = await new_message_task
-                        step_task = asyncio.create_task(self._step(msg))
+    async def submit_msg(self, msg: str):
+        await self.in_queue.put(msg)
+
+    async def _run(self):
+        llm_step_task = None
+        next_msg_task = asyncio.create_task(self.in_queue.get())
+
+        try:
+            while True:
+                if llm_step_task:
+                    done, pending = await asyncio.wait(
+                        [llm_step_task, next_msg_task],
+                        return_when=asyncio.FIRST_COMPLETED,
+                    )
+                    if llm_step_task in done:
+                        llm_result = await llm_step_task
+                        await self.process_outbound_msg(llm_result)
+                        if next_msg_task in done:
+                            next_msg = await next_msg_task
+                            llm_step_task = asyncio.create_task(
+                                self._llm_step(next_msg)
+                            )
+                            next_msg_task = asyncio.create_task(self.in_queue.get())
+                        else:
+                            llm_step_task = None
                     else:
-                        new_message_task.cancel()
+                        assert llm_step_task in pending
+                        assert next_msg_task in done
+                        llm_step_task.cancel()
                         try:
-                            await new_message_task
+                            await llm_step_task
                         except CancelledError:
                             pass
-                        await self._store_messages()
-                        await self.cleanup()
-                        return
+                        next_msg = await next_msg_task
+                        llm_step_task = asyncio.create_task(self._llm_step(next_msg))
+                        next_msg_task = asyncio.create_task(self.in_queue.get())
                 else:
-                    assert step_task in pending
-                    assert new_message_task in done
-                    step_task.cancel()
-                    try:
-                        await step_task
-                    except CancelledError:
-                        pass
-                    msg = await new_message_task
-                    step_task = asyncio.create_task(self._step(msg))
-            else:
-                msg = await new_message_task
-                step_task = asyncio.create_task(self._step(msg))
-
-    async def _load_messages(self):
-        # todo: load messages from sqlite, append to self.messages
-        pass
-
-    async def _store_messages(self):
-        # todo: store self.messages in sqlite
-        pass
+                    next_msg = await next_msg_task
+                    llm_step_task = asyncio.create_task(self._llm_step(next_msg))
+        except QueueShutDown:
+            if llm_step_task:
+                llm_result = await llm_step_task
+                await self.process_outbound_msg(llm_result)
