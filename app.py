@@ -5,6 +5,7 @@ from litestar.status_codes import HTTP_200_OK, HTTP_503_SERVICE_UNAVAILABLE
 from config import settings
 from contextlib import asynccontextmanager
 from typing import AsyncGenerator, Literal
+from functools import partial
 import httpx
 from sms_gateway import create_sms_gateway_client, send_sms, init_webhooks
 from schemas import (
@@ -19,8 +20,8 @@ from weather_tools import forecast_tool
 from datetime_tools import datetime_tool
 from navigation_tools import navigation_tool
 from assistant import Assistant
-from nominatim_client import NominatimClient
-from valhalla_client import ValhallaClient
+import nominatim_client
+import valhalla_client
 
 
 async def get_sms_gateway_client(state: State) -> httpx.AsyncClient:
@@ -35,12 +36,12 @@ async def get_weather_httpx_client(state: State) -> httpx.AsyncClient:
     return state.weather_httpx_client
 
 
-async def get_nominatim_client(state: State) -> NominatimClient:
-    return state.nominatim_client
+async def get_nominatim_httpx_client(state: State) -> httpx.AsyncClient:
+    return state.nominatim_httpx_client
 
 
-async def get_valhalla_client(state: State) -> ValhallaClient:
-    return state.valhalla_client
+async def get_valhalla_httpx_client(state: State) -> httpx.AsyncClient:
+    return state.valhalla_httpx_client
 
 
 @get(path="/health")
@@ -80,22 +81,26 @@ async def test_weather_12hour(
     "/testagent",
     dependencies={
         "weather_httpx_client": Provide(get_weather_httpx_client),
-        "nominatim_client": Provide(get_nominatim_client),
-        "valhalla_client": Provide(get_valhalla_client),
+        "nominatim_httpx_client": Provide(get_nominatim_httpx_client),
+        "valhalla_httpx_client": Provide(get_valhalla_httpx_client),
     },
 )
 async def test_agent(
     request: Request,
     weather_httpx_client: httpx.AsyncClient,
-    nominatim_client: NominatimClient,
-    valhalla_client: ValhallaClient,
+    nominatim_httpx_client: httpx.AsyncClient,
+    valhalla_httpx_client: httpx.AsyncClient,
     q: str,
 ) -> str:
+    # Create partial functions with httpx clients bound
+    geocode = partial(nominatim_client.geocode, nominatim_httpx_client)
+    get_directions = partial(valhalla_client.directions, valhalla_httpx_client)
+    
     assistant = Assistant(
         [
-            forecast_tool(weather_httpx_client, nominatim_client, request.logger),
-            datetime_tool(nominatim_client),
-            navigation_tool(valhalla_client, nominatim_client),
+            forecast_tool(weather_httpx_client, geocode, request.logger),
+            datetime_tool(geocode),
+            navigation_tool(get_directions, geocode),
         ],
         request.logger,
         settings.llm,
@@ -103,33 +108,34 @@ async def test_agent(
     return await assistant.step(q)
 
 
-@get("/testgeocoding", dependencies={"nominatim_client": Provide(get_nominatim_client)})
+@get("/testgeocoding", dependencies={"nominatim_httpx_client": Provide(get_nominatim_httpx_client)})
 async def test_geocoding(
-    request: Request, nominatim_client: NominatimClient, text: str
+    request: Request, nominatim_httpx_client: httpx.AsyncClient, text: str
 ) -> tuple[float, float]:
-    return await nominatim_client.geocode(text)
+    return await nominatim_client.geocode(nominatim_httpx_client, text)
 
 
 @get(
     "/testnav",
     dependencies={
-        "valhalla_client": Provide(get_valhalla_client),
-        "nominatim_client": Provide(get_nominatim_client),
+        "valhalla_httpx_client": Provide(get_valhalla_httpx_client),
+        "nominatim_httpx_client": Provide(get_nominatim_httpx_client),
     },
 )
 async def test_nav(
     request: Request,
-    valhalla_client: ValhallaClient,
-    nominatim_client: NominatimClient,
+    valhalla_httpx_client: httpx.AsyncClient,
+    nominatim_httpx_client: httpx.AsyncClient,
     start: str,
     end: str,
     mode: Literal["drive", "walk", "bike", "transit"] = "drive",
 ) -> Directions:
     # Geocode the start and end locations
-    start_coords = await nominatim_client.geocode(start)
-    end_coords = await nominatim_client.geocode(end)
+    start_coords = await nominatim_client.geocode(nominatim_httpx_client, start)
+    end_coords = await nominatim_client.geocode(nominatim_httpx_client, end)
 
     return await valhalla_client.directions(
+        valhalla_httpx_client,
         start=start_coords,
         end=end_coords,
         mode=mode,
@@ -144,14 +150,18 @@ async def lifespan(app: Litestar) -> AsyncGenerator[None, None]:
     async def on_received(data: SmsReceived) -> None:
         app.logger.info("SMS received: %s", data)
 
+        # Create partial functions with httpx clients bound
+        geocode = partial(nominatim_client.geocode, app.state.nominatim_httpx_client)
+        get_directions = partial(valhalla_client.directions, app.state.valhalla_httpx_client)
+        
         # Create assistant with tools
         assistant = Assistant(
             [
                 forecast_tool(
-                    app.state.weather_httpx_client, app.state.nominatim_client, app.logger
+                    app.state.weather_httpx_client, geocode, app.logger
                 ),
-                datetime_tool(app.state.nominatim_client),
-                navigation_tool(app.state.valhalla_client, app.state.nominatim_client),
+                datetime_tool(geocode),
+                navigation_tool(get_directions, geocode),
             ],
             app.logger,
             settings.llm,
@@ -175,11 +185,22 @@ async def lifespan(app: Litestar) -> AsyncGenerator[None, None]:
         follow_redirects=True,
     )
     
+    nominatim_httpx_client = httpx.AsyncClient(
+        base_url=settings.nominatim.api_url,
+        headers={"User-Agent": settings.nominatim.user_agent},
+        timeout=10.0,
+        follow_redirects=True,
+    )
+    
+    valhalla_httpx_client = httpx.AsyncClient(
+        base_url="https://valhalla1.openstreetmap.de",
+        timeout=10.0,
+        follow_redirects=True,
+    )
+    
     async with (
         create_sms_gateway_client(settings.sms.settler) as settler_sms_client,
         create_sms_gateway_client(settings.sms.nomad) as nomad_sms_client,
-        NominatimClient(settings.nominatim) as nominatim_client,
-        ValhallaClient() as valhalla_client,
     ):
         await init_webhooks(
             gateway_client=settler_sms_client,
@@ -192,12 +213,14 @@ async def lifespan(app: Litestar) -> AsyncGenerator[None, None]:
 
         app.state.sms_gateway_client = settler_sms_client
         app.state.weather_httpx_client = weather_httpx_client
-        app.state.nominatim_client = nominatim_client
-        app.state.valhalla_client = valhalla_client
+        app.state.nominatim_httpx_client = nominatim_httpx_client
+        app.state.valhalla_httpx_client = valhalla_httpx_client
         try:
             yield
         finally:
             await weather_httpx_client.aclose()
+            await nominatim_httpx_client.aclose()
+            await valhalla_httpx_client.aclose()
 
 
 app = Litestar(

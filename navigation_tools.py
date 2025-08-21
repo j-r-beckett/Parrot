@@ -1,11 +1,11 @@
-from valhalla_client import ValhallaClient
-from nominatim_client import NominatimClient
 from decorators import add_docstring
-from typing import Literal
+from typing import Literal, Callable, Awaitable
+from schemas import Directions
 
 
 def navigation_tool(
-    valhalla_client: ValhallaClient, nominatim_client: NominatimClient
+    get_directions: Callable[[tuple[float, float], tuple[float, float], Literal["drive", "walk", "bike", "transit"]], Awaitable[Directions]], 
+    geocode: Callable[[str], Awaitable[tuple[float, float]]]
 ):
     description = "Returns turn-by-turn navigation directions between two locations formatted as JSON."
 
@@ -16,14 +16,14 @@ def navigation_tool(
         mode: Literal["drive", "walk", "bike", "transit"] = "drive"
     ) -> str:
         # Geocode the start and destination locations
-        start_coords = await nominatim_client.geocode(start)
-        dest_coords = await nominatim_client.geocode(destination)
+        start_coords = await geocode(start)
+        dest_coords = await geocode(destination)
         
         # Get directions
-        directions = await valhalla_client.directions(
-            start=start_coords,
-            end=dest_coords,
-            mode=mode
+        directions = await get_directions(
+            start_coords,
+            dest_coords,
+            mode
         )
         
         return directions.model_dump_json()

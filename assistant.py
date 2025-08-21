@@ -1,4 +1,4 @@
-from mirascope import llm, BaseDynamicConfig, Messages, BaseMessageParam
+from mirascope import CallResponse, BaseDynamicConfig, Messages, BaseMessageParam
 from mirascope.core import anthropic
 from anthropic import AsyncAnthropic
 from dynaconf.utils.boxing import DynaBox
@@ -31,17 +31,23 @@ class Assistant:
             )
         ]
 
-    @anthropic.call(model="claude-sonnet-4-20250514")
-    async def call(self) -> BaseDynamicConfig:
-        return {
-            "messages": self.messages, 
-            "tools": self.tools,
-            "client": self.client,
-            "call_params": anthropic.AnthropicCallParams(
-                max_tokens=self.llm_config.max_tokens,
-                thinking={"type": "enabled", "budget_tokens": self.llm_config.max_tokens // 2}
-            ),
-        }
+    async def call(self) -> CallResponse:
+        @anthropic.call(model="claude-sonnet-4-20250514")
+        async def call() -> BaseDynamicConfig:
+            return {
+                "messages": self.messages,
+                "tools": self.tools,
+                "client": self.client,
+                "call_params": anthropic.AnthropicCallParams(
+                    max_tokens=self.llm_config.max_tokens,
+                    thinking={
+                        "type": "enabled",
+                        "budget_tokens": self.llm_config.max_tokens // 2,
+                    },
+                ),
+            }
+
+        return call()
 
     async def step(self, query: str) -> str:
         if query:

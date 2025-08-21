@@ -1,10 +1,10 @@
 from datetime import datetime
 from timezonefinder import TimezoneFinder
 import pytz
-from nominatim_client import NominatimClient
+from typing import Callable, Awaitable
 
 
-def datetime_tool(nominatim_client: NominatimClient):
+def datetime_tool(geocode: Callable[[str], Awaitable[tuple[float, float]]]):
     """Create a datetime tool function for the assistant."""
     
     tf = TimezoneFinder()
@@ -19,7 +19,7 @@ def datetime_tool(nominatim_client: NominatimClient):
             The current date and time in YYYY-MM-DD HH:MM:SS format
         """
         # Geocode the location to get coordinates
-        lat, lon = await nominatim_client.geocode(location)
+        lat, lon = await geocode(location)
         
         # Get timezone for the coordinates
         timezone_str = tf.timezone_at(lat=lat, lng=lon)
