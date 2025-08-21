@@ -4,7 +4,7 @@ from litestar.di import Provide
 from litestar.status_codes import HTTP_200_OK, HTTP_503_SERVICE_UNAVAILABLE
 from config import settings
 from contextlib import asynccontextmanager
-from typing import AsyncGenerator, Literal
+from typing import AsyncGenerator, Literal, Callable
 from functools import partial
 import httpx
 from sms_gateway import create_sms_gateway_client, send_sms, init_webhooks
@@ -19,7 +19,8 @@ import weather_client
 from weather_tools import forecast_tool
 from datetime_tools import datetime_tool
 from navigation_tools import navigation_tool
-from assistant import Assistant
+from assistant import create_llm_call, step
+from mirascope import Messages
 import nominatim_client
 import valhalla_client
 
@@ -42,6 +43,10 @@ async def get_nominatim_httpx_client(state: State) -> httpx.AsyncClient:
 
 async def get_valhalla_httpx_client(state: State) -> httpx.AsyncClient:
     return state.valhalla_httpx_client
+
+
+async def get_llm_call(state: State) -> Callable:
+    return state.llm_call
 
 
 @get(path="/health")
@@ -83,6 +88,7 @@ async def test_weather_12hour(
         "weather_httpx_client": Provide(get_weather_httpx_client),
         "nominatim_httpx_client": Provide(get_nominatim_httpx_client),
         "valhalla_httpx_client": Provide(get_valhalla_httpx_client),
+        "llm_call": Provide(get_llm_call),
     },
 )
 async def test_agent(
@@ -90,22 +96,26 @@ async def test_agent(
     weather_httpx_client: httpx.AsyncClient,
     nominatim_httpx_client: httpx.AsyncClient,
     valhalla_httpx_client: httpx.AsyncClient,
+    llm_call: Callable,
     q: str,
 ) -> str:
     # Create partial functions with httpx clients bound
     geocode = partial(nominatim_client.geocode, nominatim_httpx_client)
     get_directions = partial(valhalla_client.directions, valhalla_httpx_client)
     
-    assistant = Assistant(
-        [
-            forecast_tool(weather_httpx_client, geocode, request.logger),
-            datetime_tool(geocode),
-            navigation_tool(get_directions, geocode),
-        ],
-        request.logger,
-        settings.llm,
-    )
-    return await assistant.step(q)
+    # Set up tools
+    tools = [
+        forecast_tool(weather_httpx_client, geocode, request.logger),
+        datetime_tool(geocode),
+        navigation_tool(get_directions, geocode),
+    ]
+    
+    # Set up initial messages with system prompt
+    messages = [Messages.System(settings.prompts.assistant)]
+    
+    # Call step function
+    response, _ = await step(llm_call, messages, tools, q)
+    return response
 
 
 @get("/testgeocoding", dependencies={"nominatim_httpx_client": Provide(get_nominatim_httpx_client)})
@@ -154,21 +164,20 @@ async def lifespan(app: Litestar) -> AsyncGenerator[None, None]:
         geocode = partial(nominatim_client.geocode, app.state.nominatim_httpx_client)
         get_directions = partial(valhalla_client.directions, app.state.valhalla_httpx_client)
         
-        # Create assistant with tools
-        assistant = Assistant(
-            [
-                forecast_tool(
-                    app.state.weather_httpx_client, geocode, app.logger
-                ),
-                datetime_tool(geocode),
-                navigation_tool(get_directions, geocode),
-            ],
-            app.logger,
-            settings.llm,
-        )
-
+        # Set up tools
+        tools = [
+            forecast_tool(
+                app.state.weather_httpx_client, geocode, app.logger
+            ),
+            datetime_tool(geocode),
+            navigation_tool(get_directions, geocode),
+        ]
+        
+        # Set up initial messages with system prompt
+        messages = [Messages.System(settings.prompts.assistant)]
+        
         # Process the incoming SMS and generate a response
-        response = await assistant.step(data.payload.message)
+        response, _ = await step(app.state.llm_call, messages, tools, data.payload.message)
 
         # Send the response back via SMS
         await send_sms(
@@ -198,6 +207,9 @@ async def lifespan(app: Litestar) -> AsyncGenerator[None, None]:
         follow_redirects=True,
     )
     
+    # Create the LLM call function
+    llm_call = create_llm_call(settings.llm)
+    
     async with (
         create_sms_gateway_client(settings.sms.settler) as settler_sms_client,
         create_sms_gateway_client(settings.sms.nomad) as nomad_sms_client,
@@ -215,6 +227,7 @@ async def lifespan(app: Litestar) -> AsyncGenerator[None, None]:
         app.state.weather_httpx_client = weather_httpx_client
         app.state.nominatim_httpx_client = nominatim_httpx_client
         app.state.valhalla_httpx_client = valhalla_httpx_client
+        app.state.llm_call = llm_call
         try:
             yield
         finally:

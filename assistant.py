@@ -1,65 +1,72 @@
-from mirascope import CallResponse, BaseDynamicConfig, Messages, BaseMessageParam
-from mirascope.core import anthropic
+from mirascope.core import anthropic, BaseMessageParam, Messages, BaseDynamicConfig
+from mirascope.llm import CallResponse
 from anthropic import AsyncAnthropic
 from dynaconf.utils.boxing import DynaBox
-from typing import List
+from typing import List, Callable, Awaitable
 from logging import Logger
 
 
-class Assistant:
-    def __init__(self, tools, logger: Logger, llm_config: DynaBox):
-        self.tools = tools
-        self.logger = logger
-        self.llm_config = llm_config
-        # Create the client once during initialization
-        self.client = AsyncAnthropic(api_key=llm_config.api_key)
-        self.messages: List[BaseMessageParam] = [
-            Messages.System(
-                "You are a helpful, but efficient, assistant. Be as terse as possible, and convey "
-                "the bare minimum of information required to answer the user's question. Do not include "
-                "any filler words, preambles, postambles, or editorials. Do not convey to the user "
-                "information they already know. "
-                "In general, you should be substantially more terse than your natural inclination. "
-                "For instance, if the user asks what the weather will be like tomorrow, you should answer "
-                "like this: 'High 85, low 68, showers in the afternoon'. No need to tell them the date, "
-                "or suggest they bring an umbrella, or tell them about gust speed. Just convey the bare minimum "
-                "needed to answer their question. This is to respect the user's time; if they have additional "
-                "questions or need more information, they will ask for it."
-                "This is a general principle that should be applied to all user questions. "
-                "You have access to a suite of tools to help answer user requests. Use them as you see fit. "
-                "User's query: "
-            )
-        ]
-
-    async def call(self) -> CallResponse:
+def create_llm_call(llm_config: DynaBox) -> Callable:
+    """Create an LLM call function with config bound via closure."""
+    client = AsyncAnthropic(api_key=llm_config.api_key)
+    
+    async def call(
+        messages: List[BaseMessageParam],
+        tools: list
+    ) -> CallResponse:
+        """Call the LLM with the given messages and tools."""
         @anthropic.call(model="claude-sonnet-4-20250514")
-        async def call() -> BaseDynamicConfig:
+        async def _call() -> BaseDynamicConfig:
             return {
-                "messages": self.messages,
-                "tools": self.tools,
-                "client": self.client,
+                "messages": messages,
+                "tools": tools,
+                "client": client,
                 "call_params": anthropic.AnthropicCallParams(
-                    max_tokens=self.llm_config.max_tokens,
+                    max_tokens=llm_config.max_tokens,
                     thinking={
                         "type": "enabled",
-                        "budget_tokens": self.llm_config.max_tokens // 2,
+                        "budget_tokens": llm_config.max_tokens // 2,
                     },
                 ),
             }
+        
+        return await _call()
+    
+    return call
 
-        return call()
 
-    async def step(self, query: str) -> str:
-        if query:
-            self.messages.append(Messages.User(query))
-        response = await self.call()
-        self.messages.append(response.message_param)
-        if response.tools:
-            tool_call_results = []
-            for tool_call in response.tools:
-                result = await tool_call.call()
-                tool_call_results.append((tool_call, result))
-            self.messages += response.tool_message_params(tool_call_results)
-            return await self.step("")
-        else:
-            return response.content
+async def step(
+    llm_call: Callable[[List[BaseMessageParam], list], Awaitable[CallResponse]],
+    messages: List[BaseMessageParam],
+    tools: list,
+    query: str
+) -> tuple[str, List[BaseMessageParam]]:
+    """
+    Execute a single step of the assistant conversation.
+    
+    Returns a tuple of (response_text, updated_messages).
+    """
+    # Add the user query if provided
+    if query:
+        messages = messages + [Messages.User(query)]
+    
+    # Call the LLM
+    response = await llm_call(messages, tools)
+    
+    # Add the assistant's response to messages
+    messages = messages + [response.message_param]
+    
+    # Handle tool calls if any
+    if response.tools:
+        tool_call_results = []
+        for tool_call in response.tools:
+            result = await tool_call.call()
+            tool_call_results.append((tool_call, result))
+        
+        # Add tool results to messages
+        messages = messages + response.tool_message_params(tool_call_results)
+        
+        # Recurse to get the final response
+        return await step(llm_call, messages, tools, "")
+    else:
+        return response.content, messages
