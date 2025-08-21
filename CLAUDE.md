@@ -122,3 +122,4 @@ According to `notes.md`, planned features include:
 ## Project Status
 
 Early development - functional SMS gateway integration complete, ready for feature expansion.
+- Run tests with `uv run python -m pytest`

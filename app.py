@@ -14,7 +14,7 @@ from schemas import (
     TwelveHourForecast,
     Directions,
 )
-from weather_client import WeatherClient
+import weather_client
 from weather_tools import forecast_tool
 from datetime_tools import datetime_tool
 from navigation_tools import navigation_tool
@@ -31,8 +31,8 @@ async def get_webhook_events(state: State) -> dict:
     return state.webhook_events
 
 
-async def get_weather_client(state: State) -> WeatherClient:
-    return state.weather_client
+async def get_weather_httpx_client(state: State) -> httpx.AsyncClient:
+    return state.weather_httpx_client
 
 
 async def get_nominatim_client(state: State) -> NominatimClient:
@@ -58,42 +58,42 @@ async def test_sms(request: Request, sms_gateway_client: httpx.AsyncClient) -> R
 
 
 @get(
-    "/testweather/hourly", dependencies={"weather_client": Provide(get_weather_client)}
+    "/testweather/hourly", dependencies={"weather_httpx_client": Provide(get_weather_httpx_client)}
 )
 async def test_weather_hourly(
-    request: Request, weather_client: WeatherClient, lat: float, lon: float
+    request: Request, weather_httpx_client: httpx.AsyncClient, lat: float, lon: float
 ) -> HourlyForecast:
-    return await weather_client.hourly_forecast(request.logger, lat, lon)
+    return await weather_client.hourly_forecast(weather_httpx_client, request.logger, lat, lon)
 
 
 @get(
     "/testweather/12hour",
-    dependencies={"weather_client": Provide(get_weather_client)},
+    dependencies={"weather_httpx_client": Provide(get_weather_httpx_client)},
 )
 async def test_weather_12hour(
-    request: Request, weather_client: WeatherClient, lat: float, lon: float
+    request: Request, weather_httpx_client: httpx.AsyncClient, lat: float, lon: float
 ) -> TwelveHourForecast:
-    return await weather_client.twelveHour_forecast(request.logger, lat, lon)
+    return await weather_client.twelve_hour_forecast(weather_httpx_client, request.logger, lat, lon)
 
 
 @get(
     "/testagent",
     dependencies={
-        "weather_client": Provide(get_weather_client),
+        "weather_httpx_client": Provide(get_weather_httpx_client),
         "nominatim_client": Provide(get_nominatim_client),
         "valhalla_client": Provide(get_valhalla_client),
     },
 )
 async def test_agent(
     request: Request,
-    weather_client: WeatherClient,
+    weather_httpx_client: httpx.AsyncClient,
     nominatim_client: NominatimClient,
     valhalla_client: ValhallaClient,
     q: str,
 ) -> str:
     assistant = Assistant(
         [
-            forecast_tool(weather_client, nominatim_client, request.logger),
+            forecast_tool(weather_httpx_client, nominatim_client, request.logger),
             datetime_tool(nominatim_client),
             navigation_tool(valhalla_client, nominatim_client),
         ],
@@ -148,7 +148,7 @@ async def lifespan(app: Litestar) -> AsyncGenerator[None, None]:
         assistant = Assistant(
             [
                 forecast_tool(
-                    app.state.weather_client, app.state.nominatim_client, app.logger
+                    app.state.weather_httpx_client, app.state.nominatim_client, app.logger
                 ),
                 datetime_tool(app.state.nominatim_client),
                 navigation_tool(app.state.valhalla_client, app.state.nominatim_client),
@@ -168,10 +168,16 @@ async def lifespan(app: Litestar) -> AsyncGenerator[None, None]:
             app.logger,
         )
 
+    weather_httpx_client = httpx.AsyncClient(
+        base_url=settings.nws.api_url,
+        headers={"User-Agent": settings.nws.user_agent},
+        timeout=10.0,
+        follow_redirects=True,
+    )
+    
     async with (
         create_sms_gateway_client(settings.sms.settler) as settler_sms_client,
         create_sms_gateway_client(settings.sms.nomad) as nomad_sms_client,
-        WeatherClient(settings.nws) as weather_client,
         NominatimClient(settings.nominatim) as nominatim_client,
         ValhallaClient() as valhalla_client,
     ):
@@ -185,10 +191,13 @@ async def lifespan(app: Litestar) -> AsyncGenerator[None, None]:
         )
 
         app.state.sms_gateway_client = settler_sms_client
-        app.state.weather_client = weather_client
+        app.state.weather_httpx_client = weather_httpx_client
         app.state.nominatim_client = nominatim_client
         app.state.valhalla_client = valhalla_client
-        yield
+        try:
+            yield
+        finally:
+            await weather_httpx_client.aclose()
 
 
 app = Litestar(
