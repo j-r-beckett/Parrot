@@ -4,7 +4,7 @@ from litestar.di import Provide
 from litestar.status_codes import HTTP_200_OK, HTTP_503_SERVICE_UNAVAILABLE
 from config import settings
 from contextlib import asynccontextmanager
-from typing import AsyncGenerator, Literal, Callable
+from typing import AsyncGenerator, Literal, Callable, Optional
 from functools import partial
 import httpx
 from sms_gateway import create_sms_gateway_client, send_sms, init_webhooks
@@ -23,6 +23,10 @@ from assistant import Assistant
 from mirascope import Messages
 import nominatim_client
 import valhalla_client
+import aiosqlite
+from aiosqlitepool import SQLiteConnectionPool
+import json
+import uuid
 
 
 async def get_sms_gateway_client(state: State) -> httpx.AsyncClient:
@@ -47,6 +51,28 @@ async def get_valhalla_httpx_client(state: State) -> httpx.AsyncClient:
 
 async def get_assistant(state: State) -> Assistant:
     return state.assistant
+
+
+async def get_db_pool(state: State) -> SQLiteConnectionPool:
+    return state.db_pool
+
+
+async def init_database(db_pool: SQLiteConnectionPool) -> None:
+    """Initialize the database schema for conversations."""
+    async with db_pool.connection() as db:
+        await db.execute("""
+            CREATE TABLE IF NOT EXISTS messages (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                conversation_id TEXT NOT NULL,
+                message TEXT NOT NULL,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        """)
+        await db.execute("""
+            CREATE INDEX IF NOT EXISTS idx_conversation_id 
+            ON messages(conversation_id)
+        """)
+        await db.commit()
 
 
 @get(path="/health")
@@ -89,6 +115,7 @@ async def test_weather_12hour(
         "nominatim_httpx_client": Provide(get_nominatim_httpx_client),
         "valhalla_httpx_client": Provide(get_valhalla_httpx_client),
         "assistant": Provide(get_assistant),
+        "db_pool": Provide(get_db_pool),
     },
 )
 async def test_agent(
@@ -97,8 +124,28 @@ async def test_agent(
     nominatim_httpx_client: httpx.AsyncClient,
     valhalla_httpx_client: httpx.AsyncClient,
     assistant: Assistant,
+    db_pool: SQLiteConnectionPool,
     q: str,
+    conversation_id: Optional[str] = None,
 ) -> str:
+    # Generate conversation_id if not provided
+    if not conversation_id:
+        conversation_id = str(uuid.uuid4())
+    
+    # Load existing messages from database
+    messages = []
+    async with db_pool.connection() as db:
+        cursor = await db.execute(
+            "SELECT message FROM messages WHERE conversation_id = ? ORDER BY id",
+            (conversation_id,)
+        )
+        rows = await cursor.fetchall()
+        messages = [json.loads(row[0]) for row in rows]
+    
+    # Add system prompt if this is a new conversation
+    if not messages:
+        messages = [Messages.System(settings.prompts.assistant).model_dump()]
+    
     # Create partial functions with httpx clients bound
     geocode = partial(nominatim_client.geocode, nominatim_httpx_client)
     get_directions = partial(valhalla_client.directions, valhalla_httpx_client)
@@ -110,11 +157,22 @@ async def test_agent(
         navigation_tool(get_directions, geocode),
     ]
     
-    # Set up initial messages with system prompt as dict
-    messages = [Messages.System(settings.prompts.assistant).model_dump()]
+    # Remember the original message count
+    original_message_count = len(messages)
     
     # Call step method
-    response, _ = await assistant.step(messages, tools, q)
+    response, all_messages = await assistant.step(messages, tools, q)
+    
+    # Save only the new messages to database
+    new_messages = all_messages[original_message_count:]
+    async with db_pool.connection() as db:
+        for msg in new_messages:
+            await db.execute(
+                "INSERT INTO messages (conversation_id, message) VALUES (?, ?)",
+                (conversation_id, json.dumps(msg))
+            )
+        await db.commit()
+    
     return response
 
 
@@ -210,6 +268,13 @@ async def lifespan(app: Litestar) -> AsyncGenerator[None, None]:
     # Create the Assistant instance
     assistant = Assistant(settings.llm)
     
+    # Create database connection factory and pool
+    async def sqlite_connection() -> aiosqlite.Connection:
+        return await aiosqlite.connect("conversations.db")
+    
+    db_pool = SQLiteConnectionPool(connection_factory=sqlite_connection)
+    await init_database(db_pool)
+    
     async with (
         create_sms_gateway_client(settings.sms.settler) as settler_sms_client,
         create_sms_gateway_client(settings.sms.nomad) as nomad_sms_client,
@@ -228,12 +293,14 @@ async def lifespan(app: Litestar) -> AsyncGenerator[None, None]:
         app.state.nominatim_httpx_client = nominatim_httpx_client
         app.state.valhalla_httpx_client = valhalla_httpx_client
         app.state.assistant = assistant
+        app.state.db_pool = db_pool
         try:
             yield
         finally:
             await weather_httpx_client.aclose()
             await nominatim_httpx_client.aclose()
             await valhalla_httpx_client.aclose()
+            await db_pool.close()
 
 
 app = Litestar(
