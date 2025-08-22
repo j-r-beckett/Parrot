@@ -1,6 +1,6 @@
 from typing import Literal
 import httpx
-from schemas import Directions
+from src.schemas.navigation import Directions
 
 
 TravelMode = Literal["drive", "walk", "bike", "transit"]

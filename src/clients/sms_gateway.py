@@ -1,7 +1,7 @@
 from litestar import Request, post
 import httpx
 from typing import Callable, Optional, Any, Awaitable
-from schemas import SmsDelivered, SmsReceived
+from src.schemas.sms import SmsDelivered, SmsReceived
 import uuid
 from dynaconf.utils.boxing import DynaBox
 from logging import Logger

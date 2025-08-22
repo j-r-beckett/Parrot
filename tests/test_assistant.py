@@ -1,14 +1,14 @@
 import pytest
 from dynaconf.utils.boxing import DynaBox
 
-from assistant import Assistant
+from src.assistant.llm import Assistant
 
 
 @pytest.mark.asyncio
 async def test_haiku_says_hello():
     """Test that Haiku 3.5 responds with 'hello' when prompted."""
     # This will use the real API key from environment
-    from config import settings
+    from src.config import settings
 
     llm_config = DynaBox(
         {
@@ -36,7 +36,7 @@ async def test_haiku_says_hello():
 @pytest.mark.asyncio
 async def test_haiku_tool_call():
     """Test that Haiku 3.5 can call tools and get the magic number."""
-    from config import settings
+    from src.config import settings
 
     llm_config = DynaBox(
         {

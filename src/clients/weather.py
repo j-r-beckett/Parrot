@@ -1,6 +1,6 @@
 import httpx
 from logging import Logger
-from schemas import HourlyForecast, TwelveHourForecast
+from src.schemas.weather import HourlyForecast, TwelveHourForecast
 
 
 async def _get_grid_info(
