@@ -1,7 +1,7 @@
 import pytest
 from dynaconf.utils.boxing import DynaBox
 
-from assistant import create_llm_call, step
+from assistant import Assistant
 
 
 @pytest.mark.asyncio
@@ -18,13 +18,13 @@ async def test_haiku_says_hello():
         }
     )
 
-    llm_call = create_llm_call(llm_config)
+    assistant = Assistant(llm_config)
 
     messages = []
     tools = []
 
-    response_text, updated_messages = await step(
-        llm_call=llm_call, messages=messages, tools=tools, query='Say "hello"'
+    response_text, updated_messages = await assistant.step(
+        messages=messages, tools=tools, query='Say "hello"'
     )
 
     assert "hello" in response_text.lower()
@@ -46,7 +46,7 @@ async def test_haiku_tool_call():
         }
     )
 
-    llm_call = create_llm_call(llm_config)
+    assistant = Assistant(llm_config)
 
     # Define the magic_number tool
     async def magic_number() -> int:
@@ -56,8 +56,7 @@ async def test_haiku_tool_call():
     messages = []
     tools = [magic_number]
 
-    response_text, updated_messages = await step(
-        llm_call=llm_call,
+    response_text, updated_messages = await assistant.step(
         messages=messages,
         tools=tools,
         query="What is the magic number?"

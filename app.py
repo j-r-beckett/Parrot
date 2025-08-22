@@ -19,7 +19,7 @@ import weather_client
 from weather_tools import forecast_tool
 from datetime_tools import datetime_tool
 from navigation_tools import navigation_tool
-from assistant import create_llm_call, step
+from assistant import Assistant
 from mirascope import Messages
 import nominatim_client
 import valhalla_client
@@ -45,8 +45,8 @@ async def get_valhalla_httpx_client(state: State) -> httpx.AsyncClient:
     return state.valhalla_httpx_client
 
 
-async def get_llm_call(state: State) -> Callable:
-    return state.llm_call
+async def get_assistant(state: State) -> Assistant:
+    return state.assistant
 
 
 @get(path="/health")
@@ -88,7 +88,7 @@ async def test_weather_12hour(
         "weather_httpx_client": Provide(get_weather_httpx_client),
         "nominatim_httpx_client": Provide(get_nominatim_httpx_client),
         "valhalla_httpx_client": Provide(get_valhalla_httpx_client),
-        "llm_call": Provide(get_llm_call),
+        "assistant": Provide(get_assistant),
     },
 )
 async def test_agent(
@@ -96,7 +96,7 @@ async def test_agent(
     weather_httpx_client: httpx.AsyncClient,
     nominatim_httpx_client: httpx.AsyncClient,
     valhalla_httpx_client: httpx.AsyncClient,
-    llm_call: Callable,
+    assistant: Assistant,
     q: str,
 ) -> str:
     # Create partial functions with httpx clients bound
@@ -113,8 +113,8 @@ async def test_agent(
     # Set up initial messages with system prompt
     messages = [Messages.System(settings.prompts.assistant)]
     
-    # Call step function
-    response, _ = await step(llm_call, messages, tools, q)
+    # Call step method
+    response, _ = await assistant.step(messages, tools, q)
     return response
 
 
@@ -177,7 +177,7 @@ async def lifespan(app: Litestar) -> AsyncGenerator[None, None]:
         messages = [Messages.System(settings.prompts.assistant)]
         
         # Process the incoming SMS and generate a response
-        response, _ = await step(app.state.llm_call, messages, tools, data.payload.message)
+        response, _ = await app.state.assistant.step(messages, tools, data.payload.message)
 
         # Send the response back via SMS
         await send_sms(
@@ -207,8 +207,8 @@ async def lifespan(app: Litestar) -> AsyncGenerator[None, None]:
         follow_redirects=True,
     )
     
-    # Create the LLM call function
-    llm_call = create_llm_call(settings.llm)
+    # Create the Assistant instance
+    assistant = Assistant(settings.llm)
     
     async with (
         create_sms_gateway_client(settings.sms.settler) as settler_sms_client,
@@ -227,7 +227,7 @@ async def lifespan(app: Litestar) -> AsyncGenerator[None, None]:
         app.state.weather_httpx_client = weather_httpx_client
         app.state.nominatim_httpx_client = nominatim_httpx_client
         app.state.valhalla_httpx_client = valhalla_httpx_client
-        app.state.llm_call = llm_call
+        app.state.assistant = assistant
         try:
             yield
         finally:

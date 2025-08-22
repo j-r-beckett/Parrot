@@ -6,12 +6,49 @@ from typing import List, Callable, Awaitable
 from logging import Logger
 
 
-def create_llm_call(llm_config: DynaBox) -> Callable:
-    """Create an LLM call function with config bound via closure."""
-    client = AsyncAnthropic(api_key=llm_config.api_key)
+class Assistant:
+    """Assistant class for managing LLM interactions."""
 
-    async def call_sonnet_4(
-        messages: List[BaseMessageParam], tools: list
+    def __init__(self, llm_config: DynaBox):
+        """Initialize Assistant with LLM configuration."""
+        self.client = AsyncAnthropic(api_key=llm_config.api_key)
+        self.llm_config = llm_config
+
+        # Select model call function based on config
+        model_name = llm_config.get("model", "claude-sonnet-4")
+        if model_name == "claude-sonnet-4":
+            self.call_llm = self._call_sonnet_4
+        elif model_name == "claude-3-5-haiku":
+            self.call_llm = self._call_haiku_3_5
+        else:
+            raise ValueError(f"Unknown model: {model_name}")
+
+    async def step(
+        self,
+        messages: List[BaseMessageParam],
+        tools: list,
+        query: str,
+    ) -> tuple[str, List[str]]:
+        """
+        Execute a single step of the assistant conversation.
+
+        Returns a tuple of (response_text, updated_messages).
+        """
+        if query:
+            messages = messages + [Messages.User(query)]
+        response = await self.call_llm(messages, tools)
+        messages.append(response.message_param)
+        if response.tools:
+            tool_call_results = [
+                (tool_call, await tool_call.call()) for tool_call in response.tools
+            ]
+            messages.extend(response.tool_message_params(tool_call_results))
+            return await self.step(messages, tools, "")
+        else:
+            return response.content, [str(m) for m in messages]
+
+    async def _call_sonnet_4(
+        self, messages: List[BaseMessageParam], tools: list
     ) -> CallResponse:
         """Call Claude Sonnet 4 with thinking enabled."""
 
@@ -20,20 +57,20 @@ def create_llm_call(llm_config: DynaBox) -> Callable:
             return {
                 "messages": messages,
                 "tools": tools,
-                "client": client,
+                "client": self.client,
                 "call_params": anthropic.AnthropicCallParams(
-                    max_tokens=llm_config.max_tokens,
+                    max_tokens=self.llm_config.max_tokens,
                     thinking={
                         "type": "enabled",
-                        "budget_tokens": llm_config.max_tokens // 2,
+                        "budget_tokens": self.llm_config.max_tokens // 2,
                     },
                 ),
             }
 
         return await _call()
 
-    async def call_haiku_3_5(
-        messages: List[BaseMessageParam], tools: list
+    async def _call_haiku_3_5(
+        self, messages: List[BaseMessageParam], tools: list
     ) -> CallResponse:
         """Call Claude Haiku 3.5 without thinking mode."""
 
@@ -42,56 +79,10 @@ def create_llm_call(llm_config: DynaBox) -> Callable:
             return {
                 "messages": messages,
                 "tools": tools,
-                "client": client,
+                "client": self.client,
                 "call_params": anthropic.AnthropicCallParams(
-                    max_tokens=llm_config.max_tokens,
+                    max_tokens=self.llm_config.max_tokens,
                 ),
             }
 
         return await _call()
-
-    # Select which function to use based on config
-    model_name = llm_config.get("model", "claude-sonnet-4")
-    if model_name == "claude-sonnet-4":
-        return call_sonnet_4
-    elif model_name == "claude-3-5-haiku":
-        return call_haiku_3_5
-    else:
-        raise ValueError(f"Unknown model: {model_name}")
-
-
-async def step(
-    llm_call: Callable[[List[BaseMessageParam], list], Awaitable[CallResponse]],
-    messages: List[BaseMessageParam],
-    tools: list,
-    query: str,
-) -> tuple[str, List[str]]:
-    """
-    Execute a single step of the assistant conversation.
-
-    Returns a tuple of (response_text, updated_messages).
-    """
-    # Add the user query if provided
-    if query:
-        messages = messages + [Messages.User(query)]
-
-    # Call the LLM
-    response = await llm_call(messages, tools)
-
-    # Add the assistant's response to messages
-    messages = messages + [response.message_param]
-
-    # Handle tool calls if any
-    if response.tools:
-        tool_call_results = []
-        for tool_call in response.tools:
-            result = await tool_call.call()
-            tool_call_results.append((tool_call, result))
-
-        # Add tool results to messages
-        messages = messages + response.tool_message_params(tool_call_results)
-
-        # Recurse to get the final response
-        return await step(llm_call, messages, tools, "")
-    else:
-        return response.content, [str(m) for m in messages]
