@@ -2,7 +2,7 @@ from mirascope.core import anthropic, BaseMessageParam, Messages, BaseDynamicCon
 from mirascope.llm import CallResponse
 from anthropic import AsyncAnthropic
 from dynaconf.utils.boxing import DynaBox
-from typing import List, Callable, Awaitable
+from typing import List, Callable, Awaitable, Union
 from logging import Logger
 
 
@@ -25,30 +25,45 @@ class Assistant:
 
     async def step(
         self,
-        messages: List[BaseMessageParam],
+        messages: List[dict],
         tools: list,
         query: str,
-    ) -> tuple[str, List[str]]:
+    ) -> tuple[str, List[dict]]:
         """
         Execute a single step of the assistant conversation.
 
         Returns a tuple of (response_text, updated_messages).
         """
         if query:
-            messages = messages + [Messages.User(query)]
+            messages = messages + [Messages.User(query).model_dump()]
         response = await self.call_llm(messages, tools)
-        messages.append(response.message_param)
+        
+        # Handle message_param - it might be a BaseMessageParam or a dict
+        message_param = response.message_param
+        if hasattr(message_param, 'model_dump'):
+            # It's a BaseMessageParam, convert to dict
+            messages.append(message_param.model_dump())
+        else:
+            # It's already a dict (e.g., from thinking mode)
+            messages.append(message_param)
+            
         if response.tools:
             tool_call_results = [
                 (tool_call, await tool_call.call()) for tool_call in response.tools
             ]
-            messages.extend(response.tool_message_params(tool_call_results))
+            # Convert tool message params to dicts
+            tool_messages = response.tool_message_params(tool_call_results)
+            for msg in tool_messages:
+                if hasattr(msg, 'model_dump'):
+                    messages.append(msg.model_dump())
+                else:
+                    messages.append(msg)
             return await self.step(messages, tools, "")
         else:
-            return response.content, [str(m) for m in messages]
+            return response.content, messages
 
     async def _call_sonnet_4(
-        self, messages: List[BaseMessageParam], tools: list
+        self, messages: List[dict], tools: list
     ) -> CallResponse:
         """Call Claude Sonnet 4 with thinking enabled."""
 
@@ -70,7 +85,7 @@ class Assistant:
         return await _call()
 
     async def _call_haiku_3_5(
-        self, messages: List[BaseMessageParam], tools: list
+        self, messages: List[dict], tools: list
     ) -> CallResponse:
         """Call Claude Haiku 3.5 without thinking mode."""
 

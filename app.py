@@ -110,8 +110,8 @@ async def test_agent(
         navigation_tool(get_directions, geocode),
     ]
     
-    # Set up initial messages with system prompt
-    messages = [Messages.System(settings.prompts.assistant)]
+    # Set up initial messages with system prompt as dict
+    messages = [Messages.System(settings.prompts.assistant).model_dump()]
     
     # Call step method
     response, _ = await assistant.step(messages, tools, q)
@@ -173,8 +173,8 @@ async def lifespan(app: Litestar) -> AsyncGenerator[None, None]:
             navigation_tool(get_directions, geocode),
         ]
         
-        # Set up initial messages with system prompt
-        messages = [Messages.System(settings.prompts.assistant)]
+        # Set up initial messages with system prompt as dict
+        messages = [Messages.System(settings.prompts.assistant).model_dump()]
         
         # Process the incoming SMS and generate a response
         response, _ = await app.state.assistant.step(messages, tools, data.payload.message)

@@ -30,7 +30,7 @@ async def test_haiku_says_hello():
     assert "hello" in response_text.lower()
 
     assert len(updated_messages) == 2  # User message + Assistant response
-    assert all(isinstance(m, str) and m for m in updated_messages)
+    assert all(isinstance(m, dict) for m in updated_messages)
 
 
 @pytest.mark.asyncio
@@ -71,4 +71,4 @@ async def test_haiku_tool_call():
     # 3. Tool result
     # 4. Assistant final response
     assert len(updated_messages) == 4
-    assert all(isinstance(m, str) and m for m in updated_messages)
+    assert all(isinstance(m, dict) for m in updated_messages)
