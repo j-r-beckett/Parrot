@@ -29,12 +29,12 @@ if [ ! -f "$ENV_FILE" ]; then
     exit 1
 fi
 
-# Parse the .env file for SETTLER credentials
-SETTLER_PASSWORD=$(grep "^CLANKER_SMS_GATEWAY_SETTLER_PASSWORD=" "$ENV_FILE" | cut -d'=' -f2)
+# Parse the .env file for NOMAD credentials (sending from NOMAD to SETTLER)
+NOMAD_PASSWORD=$(grep "^CLANKER_SMS_GATEWAY_NOMAD_PASSWORD=" "$ENV_FILE" | cut -d'=' -f2)
 SETTLER_NUMBER=$(grep "^CLANKER_SMS_GATEWAY_SETTLER_NUMBER=" "$ENV_FILE" | cut -d'=' -f2)
 
-if [ -z "$SETTLER_PASSWORD" ] || [ -z "$SETTLER_NUMBER" ]; then
-    echo "Error: Could not find SETTLER credentials in .env file" >&2
+if [ -z "$NOMAD_PASSWORD" ] || [ -z "$SETTLER_NUMBER" ]; then
+    echo "Error: Could not find NOMAD/SETTLER credentials in .env file" >&2
     exit 1
 fi
 
@@ -43,8 +43,8 @@ if [[ ! "$SETTLER_NUMBER" =~ ^\+ ]]; then
     SETTLER_NUMBER="+1$SETTLER_NUMBER"
 fi
 
-# SMS Gateway configuration
-SMS_GATEWAY_URL="http://192.168.0.16:8080"
+# SMS Gateway configuration - using NOMAD device
+SMS_GATEWAY_URL="http://192.168.0.15:8080"
 USERNAME="sms"
 
 # Generate a unique message ID
@@ -65,10 +65,10 @@ EOF
 echo "Sending SMS to $SETTLER_NUMBER via SMS Gateway..."
 echo "Message: $MESSAGE"
 
-# Send the request using curl with basic auth
+# Send the request using curl with basic auth (using NOMAD password)
 RESPONSE=$(curl -s -w "\n%{http_code}" \
     -X POST \
-    -u "$USERNAME:$SETTLER_PASSWORD" \
+    -u "$USERNAME:$NOMAD_PASSWORD" \
     -H "Content-Type: application/json" \
     -d "$JSON_PAYLOAD" \
     "$SMS_GATEWAY_URL/message")
