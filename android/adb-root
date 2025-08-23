@@ -1,0 +1,45 @@
+#!/bin/bash
+
+# adb-root: Run commands as root on Android device via adb
+
+usage() {
+    echo "Usage: $(basename "$0") [-s SERIAL] COMMAND"
+    echo "Run command as root on Android device via adb"
+    echo ""
+    echo "Options:"
+    echo "  -s SERIAL    Use device with given serial"
+    echo "  -h           Show this help"
+    exit 1
+}
+
+SERIAL=""
+
+while getopts "s:h" opt; do
+    case $opt in
+        s) SERIAL="-s $OPTARG" ;;
+        h) usage ;;
+        *) usage ;;
+    esac
+done
+shift $((OPTIND-1))
+
+if [ $# -eq 0 ]; then
+    echo "Error: No command specified"
+    usage
+fi
+
+# Check if device is connected
+if ! adb $SERIAL shell exit 2>/dev/null; then
+    echo "Error: No device connected or device not responding" >&2
+    exit 1
+fi
+
+# Check if su is available
+if ! adb $SERIAL shell "su -c exit" 2>/dev/null; then
+    echo "Error: Root access not available on device" >&2
+    exit 1
+fi
+
+# Encode and execute the command
+encoded=$(echo "$*" | base64 -w 0)
+adb $SERIAL shell "su -c 'echo $encoded | base64 -d | sh'"
