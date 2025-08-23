@@ -43,6 +43,18 @@ dumpsys deviceidle disable
 # Prevent WiFi from sleeping when screen is off
 settings put global wifi_sleep_policy 2
 
+# Check if port 8000 is in use and kill existing process
+if ss -tln | grep -q ':8000 '; then
+    echo "[$(date)] Port 8000 in use, killing existing process" >> $LOG
+    # Find the PID using ss and kill it
+    PID=$(ss -tlnp | grep ':8000 ' | sed -n 's/.*pid=\([0-9]*\).*/\1/p')
+    if [ -n "$PID" ]; then
+        echo "[$(date)] Killing process $PID using port 8000" >> $LOG
+        kill -9 $PID 2>/dev/null || true
+        sleep 1
+    fi
+fi
+
 # Start smsgap
 echo "[$(date)] Starting smsgap service" >> $LOG
 cd "$SCRIPT_DIR" && setsid ./smsgap >> smsgap.log 2>&1 < /dev/null &
