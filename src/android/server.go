@@ -88,6 +88,25 @@ func SetupRouter(version string, clientManager *ClientManager) *chi.Mux {
 	return r
 }
 
+// CleanupWebhooks removes all our webhooks from SMS Gateway
+func CleanupWebhooks(client *SMSGatewayClient) error {
+	log.Printf("Cleaning up webhooks")
+	webhooks, err := client.GetWebhooks()
+	if err != nil {
+		return fmt.Errorf("failed to get webhooks: %v", err)
+	}
+	
+	for _, webhook := range webhooks {
+		log.Printf("Deleting webhook %s for event %s", webhook.ID, webhook.Event)
+		if err := client.DeleteWebhook(webhook.ID); err != nil {
+			log.Printf("ERROR: Failed to delete webhook %s: %v", webhook.ID, err)
+		}
+	}
+	
+	log.Printf("Webhook cleanup complete")
+	return nil
+}
+
 // SetupWebhooks clears existing webhooks and registers new ones
 func SetupWebhooks(client *SMSGatewayClient, serverPort string) error {
 	// Get existing webhooks

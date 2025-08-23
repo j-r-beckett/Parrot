@@ -15,7 +15,7 @@ import (
 const (
 	serverPort       = "8000"
 	smsGatewayPort   = "8080"
-	version          = "1.0"
+	version          = "1.1"
 	healthCheckRetry = 10 * time.Second
 	smsGatewayUser   = "sms"
 	// Using SETTLER password from .env - in production this should be read from env
@@ -89,12 +89,17 @@ func main() {
 	// Stop client manager pruning
 	clientManager.Stop()
 	
-	// Shutdown HTTP server
+	// Shutdown HTTP server (waits for active requests to complete)
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 	
 	if err := server.Shutdown(ctx); err != nil {
 		log.Printf("ERROR: Server shutdown failed: %v", err)
+	}
+	
+	// Clean up webhooks from SMS Gateway
+	if err := CleanupWebhooks(smsClient); err != nil {
+		log.Printf("ERROR: Failed to cleanup webhooks: %v", err)
 	}
 	
 	log.Printf("Server stopped")
