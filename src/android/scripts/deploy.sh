@@ -50,6 +50,9 @@ scripts/adb-run.sh "mv /data/local/tmp/boot.sh $DEPLOY_DIR/boot.sh && chmod +x $
 scripts/adb-run.sh "mkdir -p /data/adb/smsgap && chmod 700 /data/adb/smsgap"
 scripts/adb-run.sh "echo '$SMS_GATEWAY_PASS' > /data/adb/smsgap/password.txt && chmod 600 /data/adb/smsgap/password.txt"
 
-# Restart the service by running boot.sh with no delay
+# Stop the old service and wait for it to exit
 scripts/adb-run.sh "pkill -f smsgap || true"
+# Wait for the process to actually exit (up to 10 seconds)
+scripts/adb-run.sh "for i in \$(seq 1 10); do pgrep -f smsgap >/dev/null || break; sleep 1; done"
+# Start the new service
 scripts/adb-run.sh "$DEPLOY_DIR/boot.sh -b 0"
