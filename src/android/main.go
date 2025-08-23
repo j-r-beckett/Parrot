@@ -15,7 +15,7 @@ import (
 const (
 	serverPort       = "8000"
 	smsGatewayPort   = "8080"
-	version          = "0.6"
+	version          = "1.0"
 	healthCheckRetry = 10 * time.Second
 	smsGatewayUser   = "sms"
 	// Using SETTLER password from .env - in production this should be read from env

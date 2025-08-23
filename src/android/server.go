@@ -80,10 +80,10 @@ func SetupRouter(version string, clientManager *ClientManager) *chi.Mux {
 	})
 	
 	// Webhook endpoints
-	r.Post("/webhook/sms:received", CreateWebhookHandler("sms:received"))
-	r.Post("/webhook/sms:sent", CreateWebhookHandler("sms:sent"))
-	r.Post("/webhook/sms:delivered", CreateWebhookHandler("sms:delivered"))
-	r.Post("/webhook/sms:failed", CreateWebhookHandler("sms:failed"))
+	r.Post("/webhook/sms:received", CreateWebhookHandler("sms:received", clientManager))
+	r.Post("/webhook/sms:sent", CreateWebhookHandler("sms:sent", clientManager))
+	r.Post("/webhook/sms:delivered", CreateWebhookHandler("sms:delivered", clientManager))
+	r.Post("/webhook/sms:failed", CreateWebhookHandler("sms:failed", clientManager))
 
 	return r
 }

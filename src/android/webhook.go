@@ -1,10 +1,12 @@
 package main
 
 import (
+	"bytes"
 	"encoding/json"
 	"io"
 	"log"
 	"net/http"
+	"time"
 )
 
 // WebhookEvent represents the top-level webhook event structure
@@ -50,7 +52,7 @@ type SmsFailedPayload struct {
 }
 
 // CreateWebhookHandler creates a handler for webhook endpoints
-func CreateWebhookHandler(eventType string) http.HandlerFunc {
+func CreateWebhookHandler(eventType string, clientManager *ClientManager) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		body, err := io.ReadAll(r.Body)
 		if err != nil {
@@ -115,8 +117,60 @@ func CreateWebhookHandler(eventType string) http.HandlerFunc {
 			log.Printf("Webhook %s: Unknown event type - raw payload: %s", eventType, string(payloadJSON))
 		}
 		
-		// Return 200 OK immediately for successful processing
+		// Return 200 OK immediately to SMS Gateway
 		w.WriteHeader(http.StatusOK)
 		w.Write([]byte("OK"))
+		
+		// Forward to registered clients synchronously
+		forwardToClients(eventType, body, clientManager)
+	}
+}
+
+// forwardToClients forwards the webhook to all registered clients that subscribe to this event
+func forwardToClients(eventType string, body []byte, clientManager *ClientManager) {
+	clients := clientManager.List()
+	
+	for id, client := range clients {
+		// Check if client subscribes to this event type
+		shouldForward := false
+		switch eventType {
+		case "sms:received":
+			shouldForward = client.SmsReceived
+		case "sms:sent":
+			shouldForward = client.SmsSent
+		case "sms:delivered":
+			shouldForward = client.SmsDelivered
+		case "sms:failed":
+			shouldForward = client.SmsFailed
+		}
+		
+		if shouldForward {
+			// Try forwarding with up to 3 attempts
+			maxAttempts := 3
+			for attempt := 1; attempt <= maxAttempts; attempt++ {
+				resp, err := http.Post(client.WebhookURL, "application/json", bytes.NewBuffer(body))
+				if err != nil {
+					log.Printf("ERROR: Failed to forward %s to client %s (attempt %d/%d): %v", 
+						eventType, id, attempt, maxAttempts, err)
+					if attempt < maxAttempts {
+						time.Sleep(time.Second)
+					}
+				} else {
+					defer resp.Body.Close()
+					
+					if resp.StatusCode >= 200 && resp.StatusCode < 300 {
+						log.Printf("Forwarded %s to client %s (status %d, attempt %d/%d)", 
+							eventType, id, resp.StatusCode, attempt, maxAttempts)
+						break // Success, stop retrying
+					} else {
+						log.Printf("ERROR: Client %s returned status %d for %s (attempt %d/%d)", 
+							id, resp.StatusCode, eventType, attempt, maxAttempts)
+						if attempt < maxAttempts {
+							time.Sleep(time.Second)
+						}
+					}
+				}
+			}
+		}
 	}
 }
