@@ -25,6 +25,18 @@ done
 
 cd "$(dirname "$0")/.."
 
+# Load SMS Gateway password from .env
+if [ -f "../../.env" ]; then
+    SMS_GATEWAY_PASS=$(grep '^CLANKER_SMS_GATEWAY_SETTLER_PASSWORD=' ../../.env | cut -d'=' -f2)
+    if [ -z "$SMS_GATEWAY_PASS" ]; then
+        echo "ERROR: CLANKER_SMS_GATEWAY_SETTLER_PASSWORD not found in .env file"
+        exit 1
+    fi
+else
+    echo "ERROR: .env file not found at ../../.env"
+    exit 1
+fi
+
 # Build for Android ARM64
 GOOS=android GOARCH=arm64 go build -o bin/smsgap .
 
@@ -33,6 +45,10 @@ adb push bin/smsgap /data/local/tmp/smsgap
 adb push scripts/boot.sh /data/local/tmp/boot.sh
 scripts/adb-run.sh "mv /data/local/tmp/smsgap $DEPLOY_DIR/smsgap && chmod +x $DEPLOY_DIR/smsgap"
 scripts/adb-run.sh "mv /data/local/tmp/boot.sh $DEPLOY_DIR/boot.sh && chmod +x $DEPLOY_DIR/boot.sh"
+
+# Create password directory and write password file
+scripts/adb-run.sh "mkdir -p /data/adb/smsgap && chmod 700 /data/adb/smsgap"
+scripts/adb-run.sh "echo '$SMS_GATEWAY_PASS' > /data/adb/smsgap/password.txt && chmod 600 /data/adb/smsgap/password.txt"
 
 # Restart the service by running boot.sh with no delay
 scripts/adb-run.sh "pkill -f smsgap || true"
