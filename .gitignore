@@ -11,3 +11,6 @@ wheels/
 
 # Secrets
 .env
+
+# Go build outputs
+src/android/bin/

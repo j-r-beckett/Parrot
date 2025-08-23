@@ -3,7 +3,7 @@ import pytest
 import httpx
 from pathlib import Path
 
-import src.clients.weather as weather_client
+import clients.weather as weather_client
 
 
 @pytest.fixture

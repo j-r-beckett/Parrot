@@ -1,9 +1,9 @@
 from litestar import Litestar
-from src.config import settings
-from src.lifespan import lifespan
-from src.api.routes.health import health
-from src.api.routes.sms import test_sms
-from src.api.routes.assistant import (
+from config import settings
+from lifespan import lifespan
+from api.routes.health import health
+from api.routes.sms import test_sms
+from api.routes.assistant import (
     test_weather_hourly,
     test_weather_12hour,
     test_agent,

@@ -1,7 +1,7 @@
 from litestar.datastructures import State
 import httpx
 from aiosqlitepool import SQLiteConnectionPool
-from src.assistant.llm import Assistant
+from assistant.llm import Assistant
 
 
 async def get_sms_gateway_client(state: State) -> httpx.AsyncClient:

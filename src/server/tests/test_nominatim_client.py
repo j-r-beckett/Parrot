@@ -3,7 +3,7 @@ import pytest
 import httpx
 from pathlib import Path
 
-import src.clients.nominatim as nominatim_client
+import clients.nominatim as nominatim_client
 
 
 @pytest.fixture

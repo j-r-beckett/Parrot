@@ -1,6 +1,6 @@
-from src.utils.decorators import add_docstring
+from utils.decorators import add_docstring
 from typing import Literal, Callable, Awaitable
-from src.schemas.navigation import Directions
+from schemas.navigation import Directions
 
 
 def navigation_tool(

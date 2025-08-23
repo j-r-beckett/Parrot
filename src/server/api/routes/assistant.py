@@ -8,16 +8,16 @@ import uuid
 from functools import partial
 from mirascope import Messages
 from aiosqlitepool import SQLiteConnectionPool
-from src.config import settings
-from src.assistant.llm import Assistant
-from src.assistant.tools.weather import forecast_tool
-from src.assistant.tools.datetime import datetime_tool
-from src.assistant.tools.navigation import navigation_tool
-import src.clients.nominatim as nominatim_client
-import src.clients.valhalla as valhalla_client
-import src.clients.weather as weather_client
-from src.schemas.weather import HourlyForecast, TwelveHourForecast
-from src.schemas.navigation import Directions
+from config import settings
+from assistant.llm import Assistant
+from assistant.tools.weather import forecast_tool
+from assistant.tools.datetime import datetime_tool
+from assistant.tools.navigation import navigation_tool
+import clients.nominatim as nominatim_client
+import clients.valhalla as valhalla_client
+import clients.weather as weather_client
+from schemas.weather import HourlyForecast, TwelveHourForecast
+from schemas.navigation import Directions
 
 
 async def get_weather_httpx_client(state: State) -> httpx.AsyncClient:

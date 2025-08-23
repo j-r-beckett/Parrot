@@ -3,8 +3,8 @@ from litestar.datastructures import State
 from litestar.di import Provide
 from litestar.status_codes import HTTP_200_OK
 import httpx
-from src.config import settings
-from src.clients.sms_gateway import send_sms
+from config import settings
+from clients.sms_gateway import send_sms
 
 
 async def get_sms_gateway_client(state: State) -> httpx.AsyncClient:

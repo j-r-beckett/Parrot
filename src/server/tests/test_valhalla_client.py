@@ -3,7 +3,7 @@ import pytest
 import httpx
 from pathlib import Path
 
-import src.clients.valhalla as valhalla_client
+import clients.valhalla as valhalla_client
 
 
 @pytest.fixture

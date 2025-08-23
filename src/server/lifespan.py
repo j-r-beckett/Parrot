@@ -5,16 +5,16 @@ from litestar import Litestar
 from mirascope import Messages
 import httpx
 
-from src.config import settings
-from src.assistant.llm import Assistant
-from src.database.manager import create_db_pool
-from src.clients.sms_gateway import create_sms_gateway_client, send_sms, init_webhooks
-from src.schemas.sms import SmsDelivered, SmsReceived
-from src.assistant.tools.weather import forecast_tool
-from src.assistant.tools.datetime import datetime_tool
-from src.assistant.tools.navigation import navigation_tool
-import src.clients.nominatim as nominatim_client
-import src.clients.valhalla as valhalla_client
+from config import settings
+from assistant.llm import Assistant
+from database.manager import create_db_pool
+from clients.sms_gateway import create_sms_gateway_client, send_sms, init_webhooks
+from schemas.sms import SmsDelivered, SmsReceived
+from assistant.tools.weather import forecast_tool
+from assistant.tools.datetime import datetime_tool
+from assistant.tools.navigation import navigation_tool
+import clients.nominatim as nominatim_client
+import clients.valhalla as valhalla_client
 
 
 @asynccontextmanager

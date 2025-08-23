@@ -1,5 +1,5 @@
-import src.clients.weather as weather_client
-from src.utils.decorators import add_docstring
+import clients.weather as weather_client
+from utils.decorators import add_docstring
 from logging import Logger
 from typing import Callable, Awaitable
 import httpx
