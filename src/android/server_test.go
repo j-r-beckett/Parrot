@@ -12,7 +12,8 @@ import (
 // Test health endpoint
 func TestHealthEndpoint(t *testing.T) {
 	// Create router with test version
-	router := SetupRouter("test-version")
+	cm := NewClientManager()
+	router := SetupRouter("test-version", cm)
 	
 	// Create test server
 	ts := httptest.NewServer(router)
@@ -63,7 +64,8 @@ func TestHealthEndpoint(t *testing.T) {
 
 // Test that all webhook endpoints are registered
 func TestWebhookEndpointsRegistered(t *testing.T) {
-	router := SetupRouter("test")
+	cm := NewClientManager()
+	router := SetupRouter("test", cm)
 	ts := httptest.NewServer(router)
 	defer ts.Close()
 	

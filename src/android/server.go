@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 	"log"
 	"net/http"
@@ -10,8 +11,18 @@ import (
 	"github.com/go-chi/chi/v5/middleware"
 )
 
+// RegisterRequest represents the client registration request
+type RegisterRequest struct {
+	ID           string `json:"id"`
+	WebhookURL   string `json:"webhook_url"`
+	SmsReceived  bool   `json:"sms_received"`
+	SmsSent      bool   `json:"sms_sent"`
+	SmsDelivered bool   `json:"sms_delivered"`
+	SmsFailed    bool   `json:"sms_failed"`
+}
+
 // SetupRouter creates and configures the HTTP router
-func SetupRouter(version string) *chi.Mux {
+func SetupRouter(version string, clientManager *ClientManager) *chi.Mux {
 	r := chi.NewRouter()
 	r.Use(middleware.Logger)
 	r.Use(middleware.Recoverer)
@@ -21,6 +32,51 @@ func SetupRouter(version string) *chi.Mux {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
 		fmt.Fprintf(w, `{"status":"healthy","version":"%s","timestamp":"%s"}`, version, time.Now().Format(time.RFC3339))
+	})
+	
+	// Client registration endpoint
+	r.Post("/register", func(w http.ResponseWriter, r *http.Request) {
+		var req RegisterRequest
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			http.Error(w, "Invalid JSON", http.StatusBadRequest)
+			return
+		}
+		
+		// Validate ID length
+		if len(req.ID) == 0 || len(req.ID) > 128 {
+			http.Error(w, "ID must be between 1 and 128 characters", http.StatusBadRequest)
+			return
+		}
+		
+		// Validate webhook URL
+		if req.WebhookURL == "" {
+			http.Error(w, "webhook_url is required", http.StatusBadRequest)
+			return
+		}
+		
+		// Register the client
+		client := &Client{
+			WebhookURL:   req.WebhookURL,
+			SmsReceived:  req.SmsReceived,
+			SmsSent:      req.SmsSent,
+			SmsDelivered: req.SmsDelivered,
+			SmsFailed:    req.SmsFailed,
+		}
+		
+		clientManager.Register(req.ID, client)
+		
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		json.NewEncoder(w).Encode(map[string]string{"status": "registered", "id": req.ID})
+	})
+	
+	// List clients endpoint
+	r.Get("/clients", func(w http.ResponseWriter, r *http.Request) {
+		clients := clientManager.List()
+		
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		json.NewEncoder(w).Encode(clients)
 	})
 	
 	// Webhook endpoints

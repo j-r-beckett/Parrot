@@ -26,7 +26,7 @@ done
 cd "$(dirname "$0")/.."
 
 # Build for Android ARM64
-GOOS=android GOARCH=arm64 go build -o bin/smsgap main.go
+GOOS=android GOARCH=arm64 go build -o bin/smsgap .
 
 # Deploy binary and boot script to device
 adb push bin/smsgap /data/local/tmp/smsgap

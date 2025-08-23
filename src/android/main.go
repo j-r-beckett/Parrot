@@ -1,18 +1,21 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"log"
 	"net"
 	"net/http"
 	"os"
+	"os/signal"
+	"syscall"
 	"time"
 )
 
 const (
 	serverPort       = "8000"
 	smsGatewayPort   = "8080"
-	version          = "0.4"
+	version          = "0.6"
 	healthCheckRetry = 10 * time.Second
 	smsGatewayUser   = "sms"
 	// Using SETTLER password from .env - in production this should be read from env
@@ -49,13 +52,17 @@ func main() {
 	}
 	
 	// Setup webhooks with SMS Gateway
-	client := NewSMSGatewayClient(smsGatewayURL, smsGatewayUser, smsGatewayPass)
-	if err := SetupWebhooks(client, serverPort); err != nil {
+	smsClient := NewSMSGatewayClient(smsGatewayURL, smsGatewayUser, smsGatewayPass)
+	if err := SetupWebhooks(smsClient, serverPort); err != nil {
 		log.Fatalf("FATAL: Failed to setup webhooks: %v", err)
 	}
 
+	// Create client manager and start pruning
+	clientManager := NewClientManager()
+	clientManager.StartPruning()
+	
 	// Create and configure router
-	r := SetupRouter(version)
+	r := SetupRouter(version, clientManager)
 
 	// Start server
 	log.Printf("Starting HTTP server on port %s", serverPort)
@@ -64,8 +71,31 @@ func main() {
 		Handler: r,
 	}
 
-	if err := server.ListenAndServe(); err != nil {
-		log.Fatalf("FATAL: Failed to start server: %v", err)
-		os.Exit(1)
+	// Setup signal handling for graceful shutdown
+	sigChan := make(chan os.Signal, 1)
+	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
+	
+	// Start server in goroutine
+	go func() {
+		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			log.Fatalf("FATAL: Failed to start server: %v", err)
+		}
+	}()
+	
+	// Wait for shutdown signal
+	<-sigChan
+	log.Printf("Shutting down gracefully...")
+	
+	// Stop client manager pruning
+	clientManager.Stop()
+	
+	// Shutdown HTTP server
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	
+	if err := server.Shutdown(ctx); err != nil {
+		log.Printf("ERROR: Server shutdown failed: %v", err)
 	}
+	
+	log.Printf("Server stopped")
 }
