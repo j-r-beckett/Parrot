@@ -18,7 +18,7 @@ import (
 const (
 	serverPort       = "8000"
 	smsGatewayPort   = "8080"
-	version          = "0.3"
+	version          = "0.3a"
 	healthCheckRetry = 10 * time.Second
 	smsGatewayUser   = "sms"
 	// Using SETTLER password from .env - in production this should be read from env
@@ -165,10 +165,13 @@ func setupWebhooks() error {
 		}
 	}
 	
-	// Register new webhook for sms:received only (Phase 1.4)
-	log.Printf("Registering webhook for sms:received")
-	if err := client.RegisterWebhook("sms:received"); err != nil {
-		return fmt.Errorf("failed to register webhook: %v", err)
+	// Register all webhook types (Phase 1.4a)
+	webhookEvents := []string{"sms:received", "sms:sent", "sms:delivered", "sms:failed"}
+	for _, event := range webhookEvents {
+		log.Printf("Registering webhook for %s", event)
+		if err := client.RegisterWebhook(event); err != nil {
+			return fmt.Errorf("failed to register webhook for %s: %v", event, err)
+		}
 	}
 	
 	log.Printf("Webhook registration complete")
@@ -220,21 +223,28 @@ func main() {
 		fmt.Fprintf(w, `{"status":"healthy","version":"%s","timestamp":"%s"}`, version, time.Now().Format(time.RFC3339))
 	})
 	
-	// Webhook endpoint for sms:received - stub that logs and returns 200
-	r.Post("/webhook/sms:received", func(w http.ResponseWriter, r *http.Request) {
-		body, err := io.ReadAll(r.Body)
-		if err != nil {
-			log.Printf("ERROR: Failed to read webhook body: %v", err)
-			w.WriteHeader(http.StatusBadRequest)
-			return
+	// Webhook endpoints - stubs that log and return 200
+	webhookHandler := func(event string) http.HandlerFunc {
+		return func(w http.ResponseWriter, r *http.Request) {
+			body, err := io.ReadAll(r.Body)
+			if err != nil {
+				log.Printf("ERROR: Failed to read webhook body for %s: %v", event, err)
+				w.WriteHeader(http.StatusBadRequest)
+				return
+			}
+			
+			log.Printf("Received webhook %s - body: %s", event, string(body))
+			
+			// Return 200 OK immediately
+			w.WriteHeader(http.StatusOK)
+			w.Write([]byte("OK"))
 		}
-		
-		log.Printf("Received webhook sms:received - body: %s", string(body))
-		
-		// Return 200 OK immediately
-		w.WriteHeader(http.StatusOK)
-		w.Write([]byte("OK"))
-	})
+	}
+	
+	r.Post("/webhook/sms:received", webhookHandler("sms:received"))
+	r.Post("/webhook/sms:sent", webhookHandler("sms:sent"))
+	r.Post("/webhook/sms:delivered", webhookHandler("sms:delivered"))
+	r.Post("/webhook/sms:failed", webhookHandler("sms:failed"))
 
 	// Start server
 	log.Printf("Starting HTTP server on port %s", serverPort)
