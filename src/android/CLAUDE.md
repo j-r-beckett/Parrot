@@ -189,6 +189,36 @@ Runs integration tests against a running smsgap instance.
 ### trigger-hook.sh
 Manually triggers a webhook for testing purposes.
 
+## Magisk Integration
+
+smsgap runs as a system service on Android devices using [Magisk](https://topjohnwu.github.io/Magisk/guides.html). The deployment script installs `boot.sh` to `/data/adb/service.d/`, which is a special directory where Magisk automatically executes scripts on boot.
+
+### Boot Script Execution
+
+When Magisk runs boot scripts, it uses BusyBox's `ash` shell in standalone mode. This means:
+- All standard commands (ls, rm, cat, etc.) use BusyBox applets rather than Android's toybox or system binaries
+- The environment is minimal and isolated
+- Scripts have root privileges
+- Working directory is the script's directory
+
+The `adb-run.sh` script also executes commands in this same BusyBox environment for consistency:
+```bash
+# This runs in BusyBox ash with root privileges
+./scripts/adb-run.sh "ls -la /data/adb/service.d"
+```
+
+### Directory Structure
+```
+/data/adb/
++-- service.d/
+|   +-- boot.sh           # Magisk boot script (runs on every boot)
+|   +-- smsgap            # The compiled Go binary
+|   +-- smsgap.log        # Application logs
+|   +-- boot.log          # Boot script logs
++-- smsgap/
+    +-- password.txt      # SMS Gateway credentials
+```
+
 ## Configuration
 
 ### Password Management
@@ -265,6 +295,32 @@ curl http://192.168.0.16:8000/clients
 - SMS Gateway (not smsgap) restricts its webhook URLs to `https://` or `http://127.0.0.1`
 - Client IDs limited to 128 characters to prevent abuse
 - Phone numbers validated against regex pattern
+
+## SMS Gateway API Documentation
+
+SMS Gateway for Android exposes its Swagger/OpenAPI documentation at `http://<device-ip>:8080/docs/swagger.json`. This is useful for understanding the full capabilities of SMS Gateway beyond what smsgap uses.
+
+### Downloading the Swagger JSON
+
+1. Get the SMS Gateway password from your `.env` file:
+```bash
+grep CLANKER_SMS_GATEWAY_SETTLER_PASSWORD ../../.env
+```
+
+2. Download the Swagger JSON (replace IP and password):
+```bash
+curl -u sms:<password> http://192.168.0.16:8080/docs/swagger.json -o sms-gateway-swagger.json
+```
+
+3. View it with any OpenAPI viewer or import into Postman/Insomnia
+
+The Swagger documentation includes all SMS Gateway endpoints for:
+- Sending messages (`POST /messages`)
+- Message history (`GET /messages`)
+- Webhook management (`/webhooks`)
+- Health checks (`GET /health`)
+- Settings management (`/settings`)
+- And more
 
 ## Troubleshooting
 

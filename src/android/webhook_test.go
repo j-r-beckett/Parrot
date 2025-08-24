@@ -11,7 +11,7 @@ import (
 
 // Test fixture loading
 func loadFixture(t *testing.T, path string) []byte {
-	fullPath := filepath.Join("tests/testdata", path)
+	fullPath := filepath.Join("testdata", path)
 	data, err := os.ReadFile(fullPath)
 	if err != nil {
 		t.Fatalf("Failed to load fixture %s: %v", path, err)
