@@ -1,4 +1,5 @@
 import pytest
+import asyncio
 from dynaconf.utils.boxing import DynaBox
 
 from assistant.llm import Assistant
@@ -72,3 +73,37 @@ async def test_haiku_tool_call():
     # 4. Assistant final response
     assert len(updated_messages) == 4
     assert all(isinstance(m, dict) for m in updated_messages)
+
+
+@pytest.mark.asyncio
+async def test_haiku_tool_call_exception():
+    """Test that Haiku 3.5 handles tool exceptions properly."""
+    from config import settings
+
+    llm_config = DynaBox(
+        {
+            "model": "claude-3-5-haiku",
+            "max_tokens": 200,
+            "api_key": settings.llm.api_key,
+        }
+    )
+
+    assistant = Assistant(llm_config)
+
+    # Define a tool that throws an exception
+    async def failing_tool() -> str:
+        """A tool that always throws an exception."""
+        raise Exception("This tool intentionally fails")
+
+    messages = []
+    tools = [failing_tool]
+
+    response_text, updated_messages = await assistant.step(
+        messages=messages,
+        tools=tools,
+        query="Use the failing tool"
+    )
+    
+    # Verify the response handles the exception appropriately
+    assert updated_messages is not None
+    assert len(updated_messages) > 0

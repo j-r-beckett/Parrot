@@ -37,24 +37,28 @@ class Assistant:
         if query:
             messages = messages + [Messages.User(query).model_dump()]
         response = await self.call_llm(messages, tools)
-        
+
         # Handle message_param - it might be a BaseMessageParam or a dict
         message_param = response.message_param
-        if hasattr(message_param, 'model_dump'):
+        if hasattr(message_param, "model_dump"):
             # It's a BaseMessageParam, convert to dict
             messages.append(message_param.model_dump())
         else:
             # It's already a dict (e.g., from thinking mode)
             messages.append(message_param)
-            
+
         if response.tools:
-            tool_call_results = [
-                (tool_call, await tool_call.call()) for tool_call in response.tools
-            ]
+            tool_call_results = []
+            for tool_call in response.tools:
+                try:
+                    result = await tool_call.call()
+                    tool_call_results.append((tool_call, result))
+                except Exception as ex:
+                    tool_call_results.append((tool_call, str(ex)))
             # Convert tool message params to dicts
             tool_messages = response.tool_message_params(tool_call_results)
             for msg in tool_messages:
-                if hasattr(msg, 'model_dump'):
+                if hasattr(msg, "model_dump"):
                     messages.append(msg.model_dump())
                 else:
                     messages.append(msg)
@@ -62,9 +66,7 @@ class Assistant:
         else:
             return response.content, messages
 
-    async def _call_sonnet_4(
-        self, messages: List[dict], tools: list
-    ) -> CallResponse:
+    async def _call_sonnet_4(self, messages: List[dict], tools: list) -> CallResponse:
         """Call Claude Sonnet 4 with thinking enabled."""
 
         @anthropic.call(model="claude-sonnet-4-20250514")
@@ -84,9 +86,7 @@ class Assistant:
 
         return await _call()
 
-    async def _call_haiku_3_5(
-        self, messages: List[dict], tools: list
-    ) -> CallResponse:
+    async def _call_haiku_3_5(self, messages: List[dict], tools: list) -> CallResponse:
         """Call Claude Haiku 3.5 without thinking mode."""
 
         @anthropic.call(model="claude-3-5-haiku-20241022")
