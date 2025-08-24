@@ -1,56 +1,17 @@
 from contextlib import asynccontextmanager
 from typing import AsyncGenerator
-from functools import partial
+import asyncio
 from litestar import Litestar
-from mirascope import Messages
 import httpx
 
 from config import settings
 from assistant.llm import Assistant
 from database.manager import create_db_pool
-from clients.sms_gateway import create_sms_gateway_client, send_sms, init_webhooks
-from schemas.sms import SmsDelivered, SmsReceived
-from assistant.tools.weather import forecast_tool
-from assistant.tools.datetime import datetime_tool
-from assistant.tools.navigation import navigation_tool
-import clients.nominatim as nominatim_client
-import clients.valhalla as valhalla_client
+from clients.smsgap import create_smsgap_client, register_and_maintain
 
 
 @asynccontextmanager
 async def lifespan(app: Litestar) -> AsyncGenerator[None, None]:
-    async def on_delivered(data: SmsDelivered) -> None:
-        app.logger.info("SMS delivered: %s", data)
-
-    async def on_received(data: SmsReceived) -> None:
-        app.logger.info("SMS received: %s", data)
-
-        # Create partial functions with httpx clients bound
-        geocode = partial(nominatim_client.geocode, app.state.nominatim_httpx_client)
-        get_directions = partial(valhalla_client.directions, app.state.valhalla_httpx_client)
-        
-        # Set up tools
-        tools = [
-            forecast_tool(
-                app.state.weather_httpx_client, geocode, app.logger
-            ),
-            datetime_tool(geocode),
-            navigation_tool(get_directions, geocode),
-        ]
-        
-        # Set up initial messages with system prompt as dict
-        messages = [Messages.System(settings.prompts.assistant).model_dump()]
-        
-        # Process the incoming SMS and generate a response
-        response, _ = await app.state.assistant.step(messages, tools, data.payload.message)
-
-        # Send the response back via SMS
-        await send_sms(
-            app.state.sms_gateway_client,
-            response,
-            data.payload.phone_number,
-            app.logger,
-        )
 
     weather_httpx_client = httpx.AsyncClient(
         base_url=settings.nws.api_url,
@@ -78,29 +39,45 @@ async def lifespan(app: Litestar) -> AsyncGenerator[None, None]:
     # Create database connection factory and pool
     db_pool = await create_db_pool()
     
-    async with (
-        create_sms_gateway_client(settings.sms.settler) as settler_sms_client,
-        create_sms_gateway_client(settings.sms.nomad) as nomad_sms_client,
-    ):
-        await init_webhooks(
-            gateway_client=settler_sms_client,
-            registrar=app.register,
-            route_prefix="/webhooks/settler",
-            webhook_target_url=settings.sms.settler.webhook_target_url,
-            on_delivered=on_delivered,
-            on_received=on_received,
+    # Create clients
+    settler_smsgap_client = create_smsgap_client(settings.sms.settler.smsgap_url)
+    nomad_smsgap_client = create_smsgap_client(settings.sms.nomad.smsgap_url)
+    
+    # Start smsgap registration task for settler only
+    settler_registration_task = asyncio.create_task(
+        register_and_maintain(
+            settler_smsgap_client,
+            client_id="clanker-server",
+            webhook_url=f"{settings.webhook.base_url}/webhook/smsgap",
+            logger=app.logger,
+            on_received=True,  # We want to receive SMS
+            on_delivered=True,  # We want delivery notifications
         )
-
-        app.state.sms_gateway_client = settler_sms_client
-        app.state.weather_httpx_client = weather_httpx_client
-        app.state.nominatim_httpx_client = nominatim_httpx_client
-        app.state.valhalla_httpx_client = valhalla_httpx_client
-        app.state.assistant = assistant
-        app.state.db_pool = db_pool
+    )
+    
+    # Store clients in app state
+    app.state.settler_smsgap_client = settler_smsgap_client
+    app.state.nomad_smsgap_client = nomad_smsgap_client
+    app.state.weather_httpx_client = weather_httpx_client
+    app.state.nominatim_httpx_client = nominatim_httpx_client
+    app.state.valhalla_httpx_client = valhalla_httpx_client
+    app.state.assistant = assistant
+    app.state.db_pool = db_pool
+    
+    try:
+        yield
+    finally:
+        # Cancel registration task
+        settler_registration_task.cancel()
         try:
-            yield
-        finally:
-            await weather_httpx_client.aclose()
-            await nominatim_httpx_client.aclose()
-            await valhalla_httpx_client.aclose()
-            await db_pool.close()
+            await settler_registration_task
+        except asyncio.CancelledError:
+            pass
+        
+        # Close all clients
+        await settler_smsgap_client.aclose()
+        await nomad_smsgap_client.aclose()
+        await weather_httpx_client.aclose()
+        await nominatim_httpx_client.aclose()
+        await valhalla_httpx_client.aclose()
+        await db_pool.close()

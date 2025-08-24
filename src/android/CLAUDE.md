@@ -223,12 +223,29 @@ The `adb-run.sh` script also executes commands in this same BusyBox environment 
 ## Configuration
 
 ### Password Management
-SMS Gateway credentials are read from `/data/adb/smsgap/password.txt` on the device. The deploy script automatically creates this file from the `CLANKER_SMS_GATEWAY_SETTLER_PASSWORD` environment variable in your `.env` file.
+SMS Gateway credentials are read from `/data/adb/smsgap/password.txt` on the device. The deploy script automatically creates this file from the `CLANKER_SMS_GATEWAY_SETTLER_PASSWORD` environment variable.
 
-### Environment Variables (in .env)
+### ADB Setup
+Both settler and nomad devices must be connected via [ADB wireless debugging](https://developer.android.com/tools/adb). Enable Developer Options and Wireless Debugging on both devices, then connect:
+
+```bash
+adb connect SETTLER_IP:5555
+adb connect NOMAD_IP:5555  
 ```
-CLANKER_SMS_GATEWAY_SETTLER_PASSWORD=your_password_here
+
+### Required Environment Variables
 ```
+CLANKER_SMS_GATEWAY_SETTLER_PASSWORD=your_settler_password
+CLANKER_SMS_GATEWAY_NOMAD_PASSWORD=your_nomad_password  
+SETTLER_IP=192.168.0.16     # Required for ADB access and HTTP requests
+NOMAD_IP=192.168.0.15       # Required for ADB access and HTTP requests
+SETTLER_SERIAL=192.168.0.16:42599  # Auto-generated from SETTLER_IP
+NOMAD_SERIAL=192.168.0.15:40521    # Auto-generated from NOMAD_IP
+```
+
+The `SETTLER_IP` and `NOMAD_IP` variables are required so that:
+- HTTP requests can be made to smsgap endpoints
+- ADB device serials can be automatically inferred from connected devices
 
 ### Constants
 Configured in `main.go`:
@@ -289,11 +306,38 @@ curl http://192.168.0.16:8000/clients
 - **v1.5**: Added SMS sending endpoint (proxy to SMS Gateway)
 - **v1.6**: Health endpoint now checks SMS Gateway connectivity
 - **v1.7**: Parallel webhook forwarding for better performance
+- **v1.8**: Added `-password` flag for Termux/non-rooted deployment
+
+## Non-Rooted Device Deployment 
+
+For non-rooted devices (like nomad), smsgap can be deployed to `/data/local/tmp` via ADB.
+
+### deploy-nomad.sh
+
+Use the `deploy-nomad.sh` script for non-rooted deployment:
+```bash
+./scripts/deploy-nomad.sh
+```
+
+The script:
+- Builds smsgap for Android ARM64
+- Pushes binary to device via ADB
+- Deploys to `/data/local/tmp` (accessible without root)
+- Starts smsgap with password from command line flag
+- Logs output to `/data/local/tmp/smsgap.log`
+
+### Limitations
+
+Non-rooted deployment limitations:
+- No automatic boot startup (unlike Magisk deployment)
+- Must be manually restarted after device reboot
+- Runs in `/data/local/tmp` instead of `/data/adb/service.d`
 
 ## Security Considerations
 
-- Runs as root (required for Magisk service)
-- Password stored in root-only accessible file  
+- Runs as root on rooted devices (required for Magisk service)
+- Runs as regular user in Termux (non-rooted devices)
+- Password stored in root-only accessible file (rooted) or passed via command line (Termux)
 - SMS Gateway (not smsgap) restricts its webhook URLs to `https://` or `http://127.0.0.1`
 - Client IDs limited to 128 characters to prevent abuse
 - Phone numbers validated against regex pattern
@@ -304,9 +348,9 @@ SMS Gateway for Android exposes its Swagger/OpenAPI documentation at `http://<de
 
 ### Downloading the Swagger JSON
 
-1. Get the SMS Gateway password from your `.env` file:
+1. Get the SMS Gateway password from your environment:
 ```bash
-grep CLANKER_SMS_GATEWAY_SETTLER_PASSWORD ../../.env
+echo $CLANKER_SMS_GATEWAY_SETTLER_PASSWORD
 ```
 
 2. Download the Swagger JSON (replace IP and password):
@@ -334,7 +378,7 @@ The Swagger documentation includes all SMS Gateway endpoints for:
 
 ### Deployment issues
 1. Ensure device is connected: `adb devices`
-2. Check .env file exists with password
+2. Check environment variables are set: `echo $CLANKER_SMS_GATEWAY_SETTLER_PASSWORD`
 3. Verify Magisk is installed and su is available
 4. Check boot.log for startup errors: `adb shell su -c "cat /data/adb/service.d/boot.log"`
 

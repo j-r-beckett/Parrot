@@ -77,7 +77,7 @@ func CreateWebhookHandler(eventType string, clientManager *ClientManager) http.H
 		var phoneNumber string
 		
 		switch eventType {
-		case "sms:received":
+		case "received":
 			var payload SmsReceivedPayload
 			if err := json.Unmarshal(payloadJSON, &payload); err != nil {
 				log.Printf("ERROR: Failed to parse %s payload: %v", eventType, err)
@@ -88,7 +88,7 @@ func CreateWebhookHandler(eventType string, clientManager *ClientManager) http.H
 			log.Printf("Webhook %s: From=%s, Message='%s', ReceivedAt=%s, MessageID=%s", 
 				eventType, payload.PhoneNumber, payload.Message, payload.ReceivedAt, payload.MessageID)
 			
-		case "sms:sent":
+		case "sent":
 			var payload SmsSentPayload
 			if err := json.Unmarshal(payloadJSON, &payload); err != nil {
 				log.Printf("ERROR: Failed to parse %s payload: %v", eventType, err)
@@ -98,7 +98,7 @@ func CreateWebhookHandler(eventType string, clientManager *ClientManager) http.H
 			log.Printf("Webhook %s: To=%s, SentAt=%s, MessageID=%s", 
 				eventType, payload.PhoneNumber, payload.SentAt, payload.MessageID)
 			
-		case "sms:delivered":
+		case "delivered":
 			var payload SmsDeliveredPayload
 			if err := json.Unmarshal(payloadJSON, &payload); err != nil {
 				log.Printf("ERROR: Failed to parse %s payload: %v", eventType, err)
@@ -108,7 +108,7 @@ func CreateWebhookHandler(eventType string, clientManager *ClientManager) http.H
 			log.Printf("Webhook %s: To=%s, DeliveredAt=%s, MessageID=%s", 
 				eventType, payload.PhoneNumber, payload.DeliveredAt, payload.MessageID)
 			
-		case "sms:failed":
+		case "failed":
 			var payload SmsFailedPayload
 			if err := json.Unmarshal(payloadJSON, &payload); err != nil {
 				log.Printf("ERROR: Failed to parse %s payload: %v", eventType, err)
@@ -130,14 +130,14 @@ func CreateWebhookHandler(eventType string, clientManager *ClientManager) http.H
 		clients := clientManager.List()
 		filtered := FilterByEvent(clients, eventType)
 		
-		// For sms:received, also filter by phone number
-		if eventType == "sms:received" {
+		// For received events, also filter by phone number
+		if eventType == "received" {
 			filtered = FilterByNumberIncludes(filtered, phoneNumber)
 			filtered = FilterByNumberExcludes(filtered, phoneNumber)
 		}
 		
 		// Forward to filtered clients synchronously
-		forwardToClients(filtered, body)
+		forwardToClients(filtered, eventType, body)
 	}
 }
 
@@ -147,13 +147,13 @@ func FilterByEvent(clients []*Client, eventType string) []*Client {
 	for _, client := range clients {
 		var subscribed bool
 		switch eventType {
-		case "sms:received":
+		case "received":
 			subscribed = client.SmsReceived
-		case "sms:sent":
+		case "sent":
 			subscribed = client.SmsSent
-		case "sms:delivered":
+		case "delivered":
 			subscribed = client.SmsDelivered
-		case "sms:failed":
+		case "failed":
 			subscribed = client.SmsFailed
 		}
 		if subscribed {
@@ -204,7 +204,7 @@ func FilterByNumberExcludes(clients []*Client, phoneNumber string) []*Client {
 }
 
 // forwardToClients forwards the webhook to the given clients
-func forwardToClients(clients []*Client, body []byte) {
+func forwardToClients(clients []*Client, eventType string, body []byte) {
 	var wg sync.WaitGroup
 	
 	for _, client := range clients {
@@ -212,13 +212,16 @@ func forwardToClients(clients []*Client, body []byte) {
 		go func(client *Client) {
 			defer wg.Done()
 			
+			// Append event type to webhook URL
+			webhookURL := client.WebhookURL + "/" + eventType
+			
 			// Try forwarding with up to 3 attempts
 			maxAttempts := 3
 			for attempt := 1; attempt <= maxAttempts; attempt++ {
-				resp, err := http.Post(client.WebhookURL, "application/json", bytes.NewBuffer(body))
+				resp, err := http.Post(webhookURL, "application/json", bytes.NewBuffer(body))
 				if err != nil {
-					log.Printf("ERROR: Failed to forward to client %s (attempt %d/%d): %v", 
-						client.ID, attempt, maxAttempts, err)
+					log.Printf("ERROR: Failed to forward to client %s at %s (attempt %d/%d): %v", 
+						client.ID, webhookURL, attempt, maxAttempts, err)
 					if attempt < maxAttempts {
 						time.Sleep(time.Second)
 					}
@@ -226,12 +229,12 @@ func forwardToClients(clients []*Client, body []byte) {
 					defer resp.Body.Close()
 					
 					if resp.StatusCode >= 200 && resp.StatusCode < 300 {
-						log.Printf("Forwarded to client %s (status %d, attempt %d/%d)", 
-							client.ID, resp.StatusCode, attempt, maxAttempts)
+						log.Printf("Forwarded %s to client %s at %s (status %d, attempt %d/%d)", 
+							eventType, client.ID, webhookURL, resp.StatusCode, attempt, maxAttempts)
 						break // Success, stop retrying
 					} else {
-						log.Printf("ERROR: Client %s returned status %d (attempt %d/%d)", 
-							client.ID, resp.StatusCode, attempt, maxAttempts)
+						log.Printf("ERROR: Client %s returned status %d from %s (attempt %d/%d)", 
+							client.ID, resp.StatusCode, webhookURL, attempt, maxAttempts)
 						if attempt < maxAttempts {
 							time.Sleep(time.Second)
 						}

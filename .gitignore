@@ -10,7 +10,7 @@ wheels/
 .venv
 
 # Secrets
-.env
+.env.local
 
 # Go build outputs
 src/android/bin/

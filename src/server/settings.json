@@ -2,16 +2,11 @@
   "debug": true,
   "sms": {
     "settler": {
-      "url": "http://192.168.0.16:8080",
-      "username": "sms",
-      "password": "@format {env[CLANKER_SMS_GATEWAY_SETTLER_PASSWORD]}",
-      "number": "@format {env[CLANKER_SMS_GATEWAY_SETTLER_NUMBER]}",
-      "webhook_target_url": "http://127.0.0.1:8000"
+      "smsgap_url": "http://192.168.0.16:8000",
+      "number": "@format {env[CLANKER_SMS_GATEWAY_SETTLER_NUMBER]}"
     },
     "nomad": {
-      "url": "http://192.168.0.15:8080",
-      "username": "sms",
-      "password": "@format {env[CLANKER_SMS_GATEWAY_NOMAD_PASSWORD]}",
+      "smsgap_url": "http://192.168.0.15:8000",
       "number": "@format {env[CLANKER_SMS_GATEWAY_NOMAD_NUMBER]}"
     }
   },
@@ -21,7 +16,7 @@
     "api_key": "@format {env[CLANKER_ANTHROPIC_API_KEY]}"
   },
   "webhook": {
-    "base_url": "http://192.168.0.17:8000"
+    "base_url": "http://192.168.0.19:8000"
   },
   "nws": {
     "api_url": "https://api.weather.gov",

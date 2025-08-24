@@ -16,7 +16,7 @@ func TestWebhookEndpointsRegistered(t *testing.T) {
 	ts := httptest.NewServer(router)
 	defer ts.Close()
 	
-	events := []string{"sms:received", "sms:sent", "sms:delivered", "sms:failed"}
+	events := []string{"received", "sent", "delivered", "failed"}
 	
 	for _, event := range events {
 		// Send empty JSON object (will fail parsing but that's ok for this test)

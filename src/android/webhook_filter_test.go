@@ -17,23 +17,23 @@ func TestFilterByEvent(t *testing.T) {
 		wantIDs   []string
 	}{
 		{
-			name:      "filter sms:received",
-			eventType: "sms:received",
+			name:      "filter received",
+			eventType: "received",
 			wantIDs:   []string{"1", "3"},
 		},
 		{
-			name:      "filter sms:sent",
-			eventType: "sms:sent",
+			name:      "filter sent",
+			eventType: "sent",
 			wantIDs:   []string{"2", "3"},
 		},
 		{
-			name:      "filter sms:delivered",
-			eventType: "sms:delivered",
+			name:      "filter delivered",
+			eventType: "delivered",
 			wantIDs:   []string{"1", "3"},
 		},
 		{
-			name:      "filter sms:failed",
-			eventType: "sms:failed",
+			name:      "filter failed",
+			eventType: "failed",
 			wantIDs:   []string{"2", "3"},
 		},
 	}
@@ -227,7 +227,7 @@ func TestCombinedFiltering(t *testing.T) {
 	}
 	
 	// First filter by event
-	filtered := FilterByEvent(clients, "sms:received")
+	filtered := FilterByEvent(clients, "received")
 	// Should have clients 1, 2, 4 (not 3 because not subscribed)
 	if len(filtered) != 3 {
 		t.Errorf("Expected 3 clients after event filter, got %d", len(filtered))

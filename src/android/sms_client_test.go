@@ -61,8 +61,8 @@ func TestSMSGatewayClient(t *testing.T) {
 		case "GET":
 			if r.URL.Path == "/webhooks" {
 				webhooks := []Webhook{
-					{ID: "1", URL: "http://test.com", Event: "sms:received"},
-					{ID: "2", URL: "http://test.com", Event: "sms:sent"},
+					{ID: "1", URL: "http://test.com", Event: "received"},
+					{ID: "2", URL: "http://test.com", Event: "sent"},
 				}
 				json.NewEncoder(w).Encode(webhooks)
 			}
@@ -95,7 +95,7 @@ func TestSMSGatewayClient(t *testing.T) {
 	}
 
 	// Test RegisterWebhook
-	if err := client.RegisterWebhook("sms:received", "http://localhost:8000/webhook/sms:received"); err != nil {
+	if err := client.RegisterWebhook("received", "http://localhost:8000/webhook/received"); err != nil {
 		t.Errorf("RegisterWebhook failed: %v", err)
 	}
 }
@@ -111,7 +111,7 @@ func TestSetupWebhooks(t *testing.T) {
 		case "GET":
 			if r.URL.Path == "/webhooks" {
 				webhooks := []Webhook{
-					{ID: "old1", URL: "http://old.com", Event: "sms:received"},
+					{ID: "old1", URL: "http://old.com", Event: "received"},
 				}
 				json.NewEncoder(w).Encode(webhooks)
 			}

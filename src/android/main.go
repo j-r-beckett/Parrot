@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"flag"
 	"fmt"
 	"log"
 	"net"
@@ -16,7 +17,7 @@ import (
 const (
 	serverPort       = "8000"
 	smsGatewayPort   = "8080"
-	version          = "1.7"
+	version          = "1.8"
 	healthCheckRetry = 10 * time.Second
 	smsGatewayUser   = "sms"
 	passwordFile     = "/data/adb/smsgap/password.txt"
@@ -24,13 +25,28 @@ const (
 
 func main() {
 	log.Printf("[%s] Starting smsgap v%s", time.Now().Format("2006-01-02 15:04:05"), version)
+	log.Printf("DEBUG: os.Args = %v", os.Args)
+	
+	// Parse command line arguments
+	var passwordArg string
+	flag.StringVar(&passwordArg, "password", "", "SMS Gateway password (optional, uses password file if not specified)")
+	flag.Parse()
+	log.Printf("DEBUG: After parse, password flag = %q", passwordArg)
 
-	// Read SMS Gateway password from file
-	passwordBytes, err := os.ReadFile(passwordFile)
-	if err != nil {
-		log.Fatalf("FATAL: Failed to read password file %s: %v", passwordFile, err)
+	// Get SMS Gateway password from command line or file
+	var smsGatewayPass string
+	if passwordArg != "" {
+		smsGatewayPass = passwordArg
+		log.Printf("Using password from command line argument")
+	} else {
+		// Read SMS Gateway password from file
+		passwordBytes, err := os.ReadFile(passwordFile)
+		if err != nil {
+			log.Fatalf("FATAL: Failed to read password file %s: %v (use -password flag to provide password via command line)", passwordFile, err)
+		}
+		smsGatewayPass = strings.TrimSpace(string(passwordBytes))
+		log.Printf("Using password from file %s", passwordFile)
 	}
-	smsGatewayPass := strings.TrimSpace(string(passwordBytes))
 	
 	// Check if port is available
 	listener, err := net.Listen("tcp", ":"+serverPort)

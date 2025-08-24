@@ -155,10 +155,10 @@ func SetupRouter(version string, clientManager *ClientManager, smsClient *SMSGat
 	})
 	
 	// Webhook endpoints
-	r.Post("/webhook/sms:received", CreateWebhookHandler("sms:received", clientManager))
-	r.Post("/webhook/sms:sent", CreateWebhookHandler("sms:sent", clientManager))
-	r.Post("/webhook/sms:delivered", CreateWebhookHandler("sms:delivered", clientManager))
-	r.Post("/webhook/sms:failed", CreateWebhookHandler("sms:failed", clientManager))
+	r.Post("/webhook/received", CreateWebhookHandler("received", clientManager))
+	r.Post("/webhook/sent", CreateWebhookHandler("sent", clientManager))
+	r.Post("/webhook/delivered", CreateWebhookHandler("delivered", clientManager))
+	r.Post("/webhook/failed", CreateWebhookHandler("failed", clientManager))
 
 	return r
 }
@@ -203,7 +203,9 @@ func SetupWebhooks(client *SMSGatewayClient, serverPort string) error {
 	webhookEvents := []string{"sms:received", "sms:sent", "sms:delivered", "sms:failed"}
 	for _, event := range webhookEvents {
 		log.Printf("Registering webhook for %s", event)
-		callbackURL := fmt.Sprintf("http://127.0.0.1:%s/webhook/%s", serverPort, event)
+		// Remove sms: prefix
+		eventPath := event[4:]
+		callbackURL := fmt.Sprintf("http://127.0.0.1:%s/webhook/%s", serverPort, eventPath)
 		if err := client.RegisterWebhook(event, callbackURL); err != nil {
 			return fmt.Errorf("failed to register webhook for %s: %v", event, err)
 		}
@@ -226,7 +228,9 @@ func RepairWebhooks(client *SMSGatewayClient, serverPort string) error {
 	// Build a map of what we have
 	existingWebhooks := make(map[string]bool)
 	for _, webhook := range webhooks {
-		expectedURL := fmt.Sprintf("http://127.0.0.1:%s/webhook/%s", serverPort, webhook.Event)
+		// Remove sms: prefix
+		eventPath := webhook.Event[4:]
+		expectedURL := fmt.Sprintf("http://127.0.0.1:%s/webhook/%s", serverPort, eventPath)
 		if webhook.URL == expectedURL {
 			existingWebhooks[webhook.Event] = true
 		} else {
@@ -245,7 +249,9 @@ func RepairWebhooks(client *SMSGatewayClient, serverPort string) error {
 	for _, event := range webhookEvents {
 		if !existingWebhooks[event] {
 			log.Printf("[WebhookAutoRepair] Webhook missing for %s, repairing...", event)
-			callbackURL := fmt.Sprintf("http://127.0.0.1:%s/webhook/%s", serverPort, event)
+			// Remove sms: prefix
+			eventPath := event[4:]
+			callbackURL := fmt.Sprintf("http://127.0.0.1:%s/webhook/%s", serverPort, eventPath)
 			if err := client.RegisterWebhook(event, callbackURL); err != nil {
 				log.Printf("[WebhookAutoRepair] ERROR: Failed to register webhook for %s: %v", event, err)
 			} else {

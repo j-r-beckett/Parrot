@@ -28,32 +28,32 @@ func TestWebhookHandlers(t *testing.T) {
 		wantStatus  int
 	}{
 		{
-			name:        "valid sms:received",
-			event:       "sms:received",
+			name:        "valid received",
+			event:       "received",
 			fixturePath: "webhooks/sms_received.json",
 			wantStatus:  http.StatusOK,
 		},
 		{
-			name:        "valid sms:sent",
-			event:       "sms:sent",
+			name:        "valid sent",
+			event:       "sent",
 			fixturePath: "webhooks/sms_sent.json",
 			wantStatus:  http.StatusOK,
 		},
 		{
-			name:        "valid sms:delivered",
-			event:       "sms:delivered",
+			name:        "valid delivered",
+			event:       "delivered",
 			fixturePath: "webhooks/sms_delivered.json",
 			wantStatus:  http.StatusOK,
 		},
 		{
-			name:        "valid sms:failed",
-			event:       "sms:failed",
+			name:        "valid failed",
+			event:       "failed",
 			fixturePath: "webhooks/sms_failed.json",
 			wantStatus:  http.StatusOK,
 		},
 		{
 			name:        "malformed webhook",
-			event:       "sms:received",
+			event:       "received",
 			fixturePath: "webhooks/malformed.json",
 			wantStatus:  http.StatusBadRequest,
 		},
@@ -95,10 +95,10 @@ func TestWebhookHandlers(t *testing.T) {
 // Test webhook parsing with invalid JSON
 func TestWebhookHandlerInvalidJSON(t *testing.T) {
 	cm := NewClientManager()
-	handler := CreateWebhookHandler("sms:received", cm)
+	handler := CreateWebhookHandler("received", cm)
 	
 	// Send invalid JSON
-	req := httptest.NewRequest("POST", "/webhook/sms:received", bytes.NewBufferString("not json"))
+	req := httptest.NewRequest("POST", "/webhook/received", bytes.NewBufferString("not json"))
 	rr := httptest.NewRecorder()
 	
 	handler.ServeHTTP(rr, req)

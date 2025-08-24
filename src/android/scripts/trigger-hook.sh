@@ -64,30 +64,17 @@ if [ -z "$MESSAGE" ]; then
     MESSAGE="Test $EVENT_TYPE webhook"
 fi
 
-# Load environment variables from project root
-ENV_FILE="$(dirname "$0")/../../../.env"
-if [ ! -f "$ENV_FILE" ]; then
-    echo "Error: .env file not found at $ENV_FILE" >&2
-    exit 1
-fi
-
-# Parse the .env file for credentials
-SETTLER_PASSWORD=$(grep "^CLANKER_SMS_GATEWAY_SETTLER_PASSWORD=" "$ENV_FILE" | cut -d'=' -f2)
-SETTLER_NUMBER=$(grep "^CLANKER_SMS_GATEWAY_SETTLER_NUMBER=" "$ENV_FILE" | cut -d'=' -f2)
-NOMAD_PASSWORD=$(grep "^CLANKER_SMS_GATEWAY_NOMAD_PASSWORD=" "$ENV_FILE" | cut -d'=' -f2)
-NOMAD_NUMBER=$(grep "^CLANKER_SMS_GATEWAY_NOMAD_NUMBER=" "$ENV_FILE" | cut -d'=' -f2)
-
-if [ -z "$SETTLER_PASSWORD" ] || [ -z "$SETTLER_NUMBER" ] || [ -z "$NOMAD_PASSWORD" ] || [ -z "$NOMAD_NUMBER" ]; then
-    echo "Error: Could not find all credentials in .env file" >&2
-    exit 1
-fi
 
 # Format phone numbers with country code if not present
-if [[ ! "$SETTLER_NUMBER" =~ ^\+ ]]; then
-    SETTLER_NUMBER="+1$SETTLER_NUMBER"
+if [[ ! "$CLANKER_SMS_GATEWAY_SETTLER_NUMBER" =~ ^\+ ]]; then
+    SETTLER_NUMBER="+1$CLANKER_SMS_GATEWAY_SETTLER_NUMBER"
+else
+    SETTLER_NUMBER="$CLANKER_SMS_GATEWAY_SETTLER_NUMBER"
 fi
-if [[ ! "$NOMAD_NUMBER" =~ ^\+ ]]; then
-    NOMAD_NUMBER="+1$NOMAD_NUMBER"
+if [[ ! "$CLANKER_SMS_GATEWAY_NOMAD_NUMBER" =~ ^\+ ]]; then
+    NOMAD_NUMBER="+1$CLANKER_SMS_GATEWAY_NOMAD_NUMBER"
+else
+    NOMAD_NUMBER="$CLANKER_SMS_GATEWAY_NOMAD_NUMBER"
 fi
 
 # Device configurations
@@ -116,7 +103,7 @@ case "$EVENT_TYPE" in
     received)
         # NOMAD sends to SETTLER (triggers received on SETTLER)
         SMS_GATEWAY_URL="http://$NOMAD_IP:8080"
-        AUTH_PASSWORD="$NOMAD_PASSWORD"
+        AUTH_PASSWORD="$CLANKER_SMS_GATEWAY_NOMAD_PASSWORD"
         FROM_DEVICE="NOMAD"
         FROM_NUMBER="$NOMAD_NUMBER"
         TO_NUMBER="$SETTLER_NUMBER"
@@ -125,7 +112,7 @@ case "$EVENT_TYPE" in
     sent|delivered)
         # SETTLER sends to NOMAD (triggers sent/delivered on SETTLER)
         SMS_GATEWAY_URL="http://$SETTLER_IP:8080"
-        AUTH_PASSWORD="$SETTLER_PASSWORD"
+        AUTH_PASSWORD="$CLANKER_SMS_GATEWAY_SETTLER_PASSWORD"
         FROM_DEVICE="SETTLER"
         FROM_NUMBER="$SETTLER_NUMBER"
         TO_NUMBER="$NOMAD_NUMBER"
@@ -134,7 +121,7 @@ case "$EVENT_TYPE" in
     failed)
         # SETTLER sends to invalid number (triggers failed on SETTLER)
         SMS_GATEWAY_URL="http://$SETTLER_IP:8080"
-        AUTH_PASSWORD="$SETTLER_PASSWORD"
+        AUTH_PASSWORD="$CLANKER_SMS_GATEWAY_SETTLER_PASSWORD"
         FROM_DEVICE="SETTLER"
         FROM_NUMBER="$SETTLER_NUMBER"
         TO_NUMBER="+15555555555"
