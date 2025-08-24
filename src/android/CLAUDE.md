@@ -161,18 +161,12 @@ Builds and deploys smsgap to the Android device. Handles:
 
 Usage: `./scripts/deploy.sh [-d DEPLOY_DIR]`
 
-### log.sh
-Retrieves and displays smsgap logs from the device.
+### mgsk-run.sh
+Executes commands on the Android device as root using Magisk's busybox ash. Used internally by other scripts.
 
-Usage: `./scripts/log.sh [-t] [-n LINES] [-f LOGFILE]`
-- `-t`: Tail logs continuously
-- `-n LINES`: Show last N lines
-- `-f LOGFILE`: Specify log file (default: /data/adb/service.d/smsgap.log)
+Usage: `./scripts/mgsk-run.sh DEVICE_SERIAL "command"`
 
-### adb-run.sh
-Executes commands on the Android device as root. Used internally by other scripts.
-
-Usage: `./scripts/adb-run.sh "command"`
+Example: `./scripts/mgsk-run.sh "$SETTLER_SERIAL" "tail -f /data/adb/service.d/smsgap.log"`
 
 ### boot.sh
 Boot script deployed to the device that:
@@ -202,10 +196,10 @@ When Magisk runs boot scripts, it uses BusyBox's `ash` shell in standalone mode.
 - Scripts have root privileges
 - Working directory is the script's directory
 
-The `adb-run.sh` script also executes commands in this same BusyBox environment for consistency:
+The `mgsk-run.sh` script also executes commands in this same BusyBox environment for consistency:
 ```bash
 # This runs in BusyBox ash with root privileges
-./scripts/adb-run.sh "ls -la /data/adb/service.d"
+./scripts/mgsk-run.sh "$SETTLER_SERIAL" "ls -la /data/adb/service.d"
 ```
 
 ### Directory Structure
@@ -283,10 +277,10 @@ go test -cover ./...
 ### Monitoring
 ```bash
 # Watch logs in real-time
-./scripts/log.sh -t
+./scripts/mgsk-run.sh "$SETTLER_SERIAL" "tail -f /data/adb/service.d/smsgap.log"
 
-# Check recent logs
-./scripts/log.sh -n 50
+# Check recent logs  
+./scripts/mgsk-run.sh "$SETTLER_SERIAL" "tail -n 50 /data/adb/service.d/smsgap.log"
 
 # Check health
 curl http://192.168.0.16:8000/health

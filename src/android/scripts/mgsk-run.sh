@@ -3,33 +3,37 @@
 set -e
 
 usage() {
-    echo "Usage: $(basename "$0") [-s SERIAL] COMMAND"
+    echo "Usage: $(basename "$0") DEVICE_SERIAL COMMAND"
     echo "Run command as root on Android device via adb using Magisk's busybox ash"
     echo ""
     echo "Commands are executed in Magisk's busybox ash shell in standalone mode,"
     echo "matching the environment used by Magisk boot scripts."
     echo ""
+    echo "Arguments:"
+    echo "  DEVICE_SERIAL  Device serial (e.g., 192.168.0.16:5555)"
+    echo "  COMMAND        Command to execute"
+    echo ""
     echo "Options:"
-    echo "  -s SERIAL    Use device with given serial"
-    echo "  -h           Show this help"
+    echo "  -h             Show this help"
     exit 1
 }
 
-SERIAL=""
-
-while getopts "s:h" opt; do
+while getopts "h" opt; do
     case $opt in
-        s) SERIAL="-s $OPTARG" ;;
         h) usage ;;
         *) usage ;;
     esac
 done
 shift $((OPTIND-1))
 
-if [ $# -eq 0 ]; then
-    echo "Error: No command specified"
+if [ $# -lt 2 ]; then
+    echo "Error: Device serial and command required"
     usage
 fi
+
+DEVICE_SERIAL="$1"
+shift
+SERIAL="-s $DEVICE_SERIAL"
 
 # Check if device is connected
 if ! adb $SERIAL shell exit 2>/dev/null; then
