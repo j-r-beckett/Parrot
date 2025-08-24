@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 	"time"
 )
@@ -15,16 +16,22 @@ import (
 const (
 	serverPort       = "8000"
 	smsGatewayPort   = "8080"
-	version          = "1.1"
+	version          = "1.6"
 	healthCheckRetry = 10 * time.Second
 	smsGatewayUser   = "sms"
-	// Using SETTLER password from .env - in production this should be read from env
-	smsGatewayPass   = "TOMmAyL5"
+	passwordFile     = "/data/adb/smsgap/password.txt"
 )
 
 func main() {
 	log.Printf("[%s] Starting smsgap v%s", time.Now().Format("2006-01-02 15:04:05"), version)
 
+	// Read SMS Gateway password from file
+	passwordBytes, err := os.ReadFile(passwordFile)
+	if err != nil {
+		log.Fatalf("FATAL: Failed to read password file %s: %v", passwordFile, err)
+	}
+	smsGatewayPass := strings.TrimSpace(string(passwordBytes))
+	
 	// Check if port is available
 	listener, err := net.Listen("tcp", ":"+serverPort)
 	if err != nil {
@@ -61,8 +68,27 @@ func main() {
 	clientManager := NewClientManager()
 	clientManager.StartPruning()
 	
+	// Start webhook auto-repair goroutine
+	stopAutoRepair := make(chan struct{})
+	go func() {
+		ticker := time.NewTicker(30 * time.Second)
+		defer ticker.Stop()
+		
+		for {
+			select {
+			case <-ticker.C:
+				if err := RepairWebhooks(smsClient, serverPort); err != nil {
+					log.Printf("[WebhookAutoRepair] ERROR: Failed to repair webhooks: %v", err)
+				}
+			case <-stopAutoRepair:
+				log.Printf("[WebhookAutoRepair] Stopping auto-repair")
+				return
+			}
+		}
+	}()
+	
 	// Create and configure router
-	r := SetupRouter(version, clientManager)
+	r := SetupRouter(version, clientManager, smsClient)
 
 	// Start server
 	log.Printf("Starting HTTP server on port %s", serverPort)
@@ -85,6 +111,9 @@ func main() {
 	// Wait for shutdown signal
 	<-sigChan
 	log.Printf("Shutting down gracefully...")
+	
+	// Stop auto-repair
+	close(stopAutoRepair)
 	
 	// Stop client manager pruning
 	clientManager.Stop()

@@ -10,7 +10,8 @@ import (
 
 func TestRegisterEndpoint(t *testing.T) {
 	cm := NewClientManager()
-	router := SetupRouter("test", cm)
+	smsClient := NewSMSGatewayClient("http://localhost:8080", "test", "test")
+	router := SetupRouter("test", cm, smsClient)
 	
 	tests := []struct {
 		name       string
@@ -95,11 +96,12 @@ func TestRegisterEndpoint(t *testing.T) {
 
 func TestClientsEndpoint(t *testing.T) {
 	cm := NewClientManager()
-	router := SetupRouter("test", cm)
+	smsClient := NewSMSGatewayClient("http://localhost:8080", "test", "test")
+	router := SetupRouter("test", cm, smsClient)
 	
 	// Register some clients
-	cm.Register("client1", &Client{WebhookURL: "http://example1.com"})
-	cm.Register("client2", &Client{WebhookURL: "http://example2.com"})
+	cm.Register("client1", &Client{ID: "client1", WebhookURL: "http://example1.com"})
+	cm.Register("client2", &Client{ID: "client2", WebhookURL: "http://example2.com"})
 	
 	req := httptest.NewRequest("GET", "/clients", nil)
 	rr := httptest.NewRecorder()
@@ -110,7 +112,7 @@ func TestClientsEndpoint(t *testing.T) {
 		t.Errorf("handler returned wrong status code: got %v want %v", status, http.StatusOK)
 	}
 	
-	var clients map[string]*Client
+	var clients []*Client
 	if err := json.NewDecoder(rr.Body).Decode(&clients); err != nil {
 		t.Fatalf("Failed to decode response: %v", err)
 	}
@@ -119,10 +121,21 @@ func TestClientsEndpoint(t *testing.T) {
 		t.Errorf("Expected 2 clients, got %d", len(clients))
 	}
 	
-	if clients["client1"].WebhookURL != "http://example1.com" {
-		t.Error("Client1 webhook URL mismatch")
+	// Check both clients exist with correct URLs
+	foundClient1 := false
+	foundClient2 := false
+	for _, client := range clients {
+		if client.ID == "client1" && client.WebhookURL == "http://example1.com" {
+			foundClient1 = true
+		}
+		if client.ID == "client2" && client.WebhookURL == "http://example2.com" {
+			foundClient2 = true
+		}
 	}
-	if clients["client2"].WebhookURL != "http://example2.com" {
-		t.Error("Client2 webhook URL mismatch")
+	if !foundClient1 {
+		t.Error("Client1 not found or has wrong webhook URL")
+	}
+	if !foundClient2 {
+		t.Error("Client2 not found or has wrong webhook URL")
 	}
 }

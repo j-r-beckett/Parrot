@@ -121,7 +121,61 @@ func (c *SMSGatewayClient) RegisterWebhook(event, callbackURL string) error {
 	return nil
 }
 
-// CheckHealth checks if the SMS Gateway is healthy
+// SendSMS sends an SMS message via SMS Gateway
+func (c *SMSGatewayClient) SendSMS(phoneNumbers []string, message string, simNumber *int) (map[string]interface{}, error) {
+	payload := map[string]interface{}{
+		"phoneNumbers": phoneNumbers,
+		"message":      message,
+	}
+	if simNumber != nil {
+		payload["simNumber"] = *simNumber
+	}
+	
+	resp, err := c.doRequest("POST", "/messages", payload)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+	
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, err
+	}
+	
+	if resp.StatusCode != http.StatusAccepted {
+		return nil, fmt.Errorf("failed to send SMS: status %d, body: %s", resp.StatusCode, body)
+	}
+	
+	var result map[string]interface{}
+	if err := json.Unmarshal(body, &result); err != nil {
+		return nil, err
+	}
+	
+	return result, nil
+}
+
+// CheckHealth checks if the SMS Gateway is healthy and returns an error if not
+func (c *SMSGatewayClient) CheckHealth() error {
+	healthReq, err := http.NewRequest("GET", c.baseURL+"/health", nil)
+	if err != nil {
+		return err
+	}
+	healthReq.SetBasicAuth(c.username, c.password)
+	
+	resp, err := c.client.Do(healthReq)
+	if err != nil {
+		return fmt.Errorf("failed to connect to SMS Gateway: %v", err)
+	}
+	defer resp.Body.Close()
+	
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("SMS Gateway health check returned status %d", resp.StatusCode)
+	}
+	
+	return nil
+}
+
+// CheckSMSGatewayHealth checks if the SMS Gateway is healthy (legacy function for startup)
 func CheckSMSGatewayHealth(url string) error {
 	client := &http.Client{Timeout: 2 * time.Second}
 	

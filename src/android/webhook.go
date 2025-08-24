@@ -72,6 +72,9 @@ func CreateWebhookHandler(eventType string, clientManager *ClientManager) http.H
 		// Parse the specific payload based on event type
 		payloadJSON, _ := json.Marshal(event.Payload)
 		
+		// Variable to hold phone number for filtering
+		var phoneNumber string
+		
 		switch eventType {
 		case "sms:received":
 			var payload SmsReceivedPayload
@@ -80,6 +83,7 @@ func CreateWebhookHandler(eventType string, clientManager *ClientManager) http.H
 				w.WriteHeader(http.StatusBadRequest)
 				return
 			}
+			phoneNumber = payload.PhoneNumber
 			log.Printf("Webhook %s: From=%s, Message='%s', ReceivedAt=%s, MessageID=%s", 
 				eventType, payload.PhoneNumber, payload.Message, payload.ReceivedAt, payload.MessageID)
 			
@@ -121,53 +125,108 @@ func CreateWebhookHandler(eventType string, clientManager *ClientManager) http.H
 		w.WriteHeader(http.StatusOK)
 		w.Write([]byte("OK"))
 		
-		// Forward to registered clients synchronously
-		forwardToClients(eventType, body, clientManager)
+		// Get all clients and filter by event subscription
+		clients := clientManager.List()
+		filtered := FilterByEvent(clients, eventType)
+		
+		// For sms:received, also filter by phone number
+		if eventType == "sms:received" {
+			filtered = FilterByNumberIncludes(filtered, phoneNumber)
+			filtered = FilterByNumberExcludes(filtered, phoneNumber)
+		}
+		
+		// Forward to filtered clients synchronously
+		forwardToClients(filtered, body)
 	}
 }
 
-// forwardToClients forwards the webhook to all registered clients that subscribe to this event
-func forwardToClients(eventType string, body []byte, clientManager *ClientManager) {
-	clients := clientManager.List()
-	
-	for id, client := range clients {
-		// Check if client subscribes to this event type
-		shouldForward := false
+// FilterByEvent returns clients that subscribe to the given event type
+func FilterByEvent(clients []*Client, eventType string) []*Client {
+	var filtered []*Client
+	for _, client := range clients {
+		var subscribed bool
 		switch eventType {
 		case "sms:received":
-			shouldForward = client.SmsReceived
+			subscribed = client.SmsReceived
 		case "sms:sent":
-			shouldForward = client.SmsSent
+			subscribed = client.SmsSent
 		case "sms:delivered":
-			shouldForward = client.SmsDelivered
+			subscribed = client.SmsDelivered
 		case "sms:failed":
-			shouldForward = client.SmsFailed
+			subscribed = client.SmsFailed
+		}
+		if subscribed {
+			filtered = append(filtered, client)
+		}
+	}
+	return filtered
+}
+
+// FilterByNumberIncludes returns clients that include the phone number (or have no include list)
+func FilterByNumberIncludes(clients []*Client, phoneNumber string) []*Client {
+	var filtered []*Client
+	for _, client := range clients {
+		var subscribed bool = len(client.IncludeReceivedFrom) == 0
+		// Check if number is in include list
+		for _, num := range client.IncludeReceivedFrom {
+			if num == phoneNumber {
+				subscribed = true
+				break
+			}
 		}
 		
-		if shouldForward {
-			// Try forwarding with up to 3 attempts
-			maxAttempts := 3
-			for attempt := 1; attempt <= maxAttempts; attempt++ {
-				resp, err := http.Post(client.WebhookURL, "application/json", bytes.NewBuffer(body))
-				if err != nil {
-					log.Printf("ERROR: Failed to forward %s to client %s (attempt %d/%d): %v", 
-						eventType, id, attempt, maxAttempts, err)
+		if subscribed {
+			filtered = append(filtered, client)
+		}
+	}
+	return filtered
+}
+
+// FilterByNumberExcludes returns clients that don't exclude the phone number
+func FilterByNumberExcludes(clients []*Client, phoneNumber string) []*Client {
+	var filtered []*Client
+	for _, client := range clients {
+		var subscribed bool = true
+		// Check if number is in exclude list
+		for _, num := range client.ExcludeReceivedFrom {
+			if num == phoneNumber {
+				subscribed = false
+				break
+			}
+		}
+		
+		if subscribed {
+			filtered = append(filtered, client)
+		}
+	}
+	return filtered
+}
+
+// forwardToClients forwards the webhook to the given clients
+func forwardToClients(clients []*Client, body []byte) {
+	for _, client := range clients {
+		// Try forwarding with up to 3 attempts
+		maxAttempts := 3
+		for attempt := 1; attempt <= maxAttempts; attempt++ {
+			resp, err := http.Post(client.WebhookURL, "application/json", bytes.NewBuffer(body))
+			if err != nil {
+				log.Printf("ERROR: Failed to forward to client %s (attempt %d/%d): %v", 
+					client.ID, attempt, maxAttempts, err)
+				if attempt < maxAttempts {
+					time.Sleep(time.Second)
+				}
+			} else {
+				defer resp.Body.Close()
+				
+				if resp.StatusCode >= 200 && resp.StatusCode < 300 {
+					log.Printf("Forwarded to client %s (status %d, attempt %d/%d)", 
+						client.ID, resp.StatusCode, attempt, maxAttempts)
+					break // Success, stop retrying
+				} else {
+					log.Printf("ERROR: Client %s returned status %d (attempt %d/%d)", 
+						client.ID, resp.StatusCode, attempt, maxAttempts)
 					if attempt < maxAttempts {
 						time.Sleep(time.Second)
-					}
-				} else {
-					defer resp.Body.Close()
-					
-					if resp.StatusCode >= 200 && resp.StatusCode < 300 {
-						log.Printf("Forwarded %s to client %s (status %d, attempt %d/%d)", 
-							eventType, id, resp.StatusCode, attempt, maxAttempts)
-						break // Success, stop retrying
-					} else {
-						log.Printf("ERROR: Client %s returned status %d for %s (attempt %d/%d)", 
-							id, resp.StatusCode, eventType, attempt, maxAttempts)
-						if attempt < maxAttempts {
-							time.Sleep(time.Second)
-						}
 					}
 				}
 			}

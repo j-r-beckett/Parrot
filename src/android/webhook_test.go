@@ -64,8 +64,9 @@ func TestWebhookHandlers(t *testing.T) {
 			// Load fixture
 			fixture := loadFixture(t, tt.fixturePath)
 
-			// Create the actual webhook handler
-			handler := CreateWebhookHandler(tt.event)
+			// Create the actual webhook handler with a dummy client manager
+			cm := NewClientManager()
+			handler := CreateWebhookHandler(tt.event, cm)
 
 			// Create test request
 			req := httptest.NewRequest("POST", "/webhook/"+tt.event, bytes.NewBuffer(fixture))
@@ -93,7 +94,8 @@ func TestWebhookHandlers(t *testing.T) {
 
 // Test webhook parsing with invalid JSON
 func TestWebhookHandlerInvalidJSON(t *testing.T) {
-	handler := CreateWebhookHandler("sms:received")
+	cm := NewClientManager()
+	handler := CreateWebhookHandler("sms:received", cm)
 	
 	// Send invalid JSON
 	req := httptest.NewRequest("POST", "/webhook/sms:received", bytes.NewBufferString("not json"))

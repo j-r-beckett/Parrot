@@ -1,0 +1,284 @@
+# SMS Gateway Proxy (smsgap)
+
+## Overview
+
+`smsgap` is a webhook proxy service that sits between [SMS Gateway for Android](https://github.com/capcom6/android-sms-gateway) and backend servers. It runs directly on the Android device alongside SMS Gateway, providing advanced webhook management capabilities that SMS Gateway doesn't natively support.
+
+## Architecture
+
+```
++-------------------------------------------+
+|            Android Phone                  |
+|                                           |
+| +------------------+                      |
+| | SmsManager       |                      |
+| +------------------+                      |
+| | BroadcastReceiver|                      |
+| +------------------+                      |
+|         ^                                 |
+|         |                                 |
+|         v                                 |
+| +------------------+     +--------------+ |
+| | SMS Gateway      |---->|   smsgap     | |
+| | (port 8080)      |     | (port 8000)  | |
+| +------------------+     +--------------+ |
+|                                  |        |
++-------------------------------------------+
+                                   |
+          Forwards webhooks to registered clients
+                                   |
+                          +--------+--------+
+                          |                 |
+                          v                 v
+                       +-----+           +------+
+                       | PPE |           | Prod |
+                       +-----+           +------+
+```
+
+When SMS events occur (received, sent, delivered, failed), SMS Gateway sends webhooks to smsgap on localhost:8000. smsgap then forwards these webhooks to all registered clients based on their subscription preferences and filtering rules.
+
+Backend servers can also send SMS messages through smsgap's `/send` endpoint, which proxies the request to SMS Gateway. This means backend servers only need to connect to smsgap for both sending and receiving SMS functionality.
+
+## Key Features
+
+### Client Registration
+Clients register with smsgap by calling the `/register` endpoint with:
+- Unique client ID
+- Webhook URL to receive forwarded events
+- Event subscriptions (sms_received, sms_sent, sms_delivered, sms_failed)
+- Optional phone number filters (include/exclude lists)
+
+**Important**: Client registrations expire after 60 seconds of inactivity. Clients must periodically re-register (recommended every 30-45 seconds) to maintain their registration.
+
+### Phone Number Filtering
+For `sms:received` events, clients can specify:
+- **Include list**: Only receive webhooks from these phone numbers
+- **Exclude list**: Don't receive webhooks from these phone numbers
+
+This enables sophisticated routing scenarios. For example, a production/PPE setup:
+```json
+// PPE Client Registration
+{
+  "id": "ppe-client",
+  "webhook_url": "https://ppe.example.com/webhook",
+  "sms_received": true,
+  "include_received_from": ["+15551234567", "+15559876543"]  // PPE test numbers
+}
+
+// Production Client Registration  
+{
+  "id": "prod-client",
+  "webhook_url": "https://prod.example.com/webhook",
+  "sms_received": true,
+  "exclude_received_from": ["+15551234567", "+15559876543"]  // Exclude PPE numbers
+}
+```
+
+### Reliability Features
+- **Retry Logic**: Failed webhook forwards are retried 3 times with 1-second delays
+- **Client Pruning**: Inactive clients (>60 seconds) are automatically removed
+- **Webhook Auto-Repair**: Checks every 30 seconds that SMS Gateway webhooks are registered, re-registers if missing
+- **Graceful Shutdown**: Properly cleans up webhooks and waits for pending forwards
+
+## API Endpoints
+
+### POST /register
+Register or update a client.
+
+**Request:**
+```json
+{
+  "id": "client-123",
+  "webhook_url": "https://example.com/webhook",
+  "sms_received": true,
+  "sms_sent": false,
+  "sms_delivered": true,
+  "sms_failed": false,
+  "include_received_from": ["+15551234567"],
+  "exclude_received_from": []
+}
+```
+
+**Validation:**
+- ID must be 1-128 characters
+- Webhook URL is required (can be any non-empty string)
+- Cannot specify both include and exclude lists
+- Phone numbers must match `^\+?\d{10,14}$`
+
+### GET /clients
+List all registered clients with their configurations.
+
+### GET /health
+Health check endpoint that also verifies SMS Gateway connectivity.
+
+**Response (200 OK when healthy):**
+```json
+{
+  "status": "healthy",
+  "version": "1.6",
+  "timestamp": "2025-08-24T00:29:21Z",
+  "sms_gateway": "healthy"
+}
+```
+
+**Response (503 Service Unavailable when SMS Gateway is down):**
+```json
+{
+  "status": "unhealthy",
+  "version": "1.6",
+  "timestamp": "2025-08-24T00:29:21Z",
+  "sms_gateway": "unhealthy",
+  "error": "failed to connect to SMS Gateway: ..."
+}
+```
+
+### POST /send
+Send SMS messages via SMS Gateway.
+
+**Request:**
+```json
+{
+  "phone_numbers": ["+15551234567", "+15559876543"],
+  "message": "Hello from smsgap",
+  "sim_number": 1  // Optional: 1-3, defaults to SMS Gateway's default
+}
+```
+
+**Response (202 Accepted):**
+Returns SMS Gateway's message status response with message ID and state information.
+
+## Scripts Directory
+
+The `scripts/` directory contains essential tools for managing smsgap on Android devices:
+
+### deploy.sh
+Builds and deploys smsgap to the Android device. Handles:
+- Cross-compilation for Android ARM64
+- Binary and script deployment
+- Password file creation from .env
+- Graceful service restart (waits for old instance to stop)
+
+Usage: `./scripts/deploy.sh [-d DEPLOY_DIR]`
+
+### log.sh
+Retrieves and displays smsgap logs from the device.
+
+Usage: `./scripts/log.sh [-t] [-n LINES] [-f LOGFILE]`
+- `-t`: Tail logs continuously
+- `-n LINES`: Show last N lines
+- `-f LOGFILE`: Specify log file (default: /data/adb/service.d/smsgap.log)
+
+### adb-run.sh
+Executes commands on the Android device as root. Used internally by other scripts.
+
+Usage: `./scripts/adb-run.sh "command"`
+
+### boot.sh
+Boot script deployed to the device that:
+- Waits for device boot completion
+- Disables Doze mode
+- Prevents WiFi sleep
+- Kills any existing smsgap process on the port
+- Starts smsgap service
+
+Automatically runs on device boot when placed in `/data/adb/service.d/`.
+
+### test.sh
+Runs integration tests against a running smsgap instance.
+
+### trigger-hook.sh
+Manually triggers a webhook for testing purposes.
+
+## Configuration
+
+### Password Management
+SMS Gateway credentials are read from `/data/adb/smsgap/password.txt` on the device. The deploy script automatically creates this file from the `CLANKER_SMS_GATEWAY_SETTLER_PASSWORD` environment variable in your `.env` file.
+
+### Environment Variables (in .env)
+```
+CLANKER_SMS_GATEWAY_SETTLER_PASSWORD=your_password_here
+```
+
+### Constants
+Configured in `main.go`:
+- Server port: 8000
+- SMS Gateway port: 8080  
+- Client timeout: 60 seconds
+- Webhook check interval: 30 seconds
+- Retry attempts: 3
+- Retry delay: 1 second
+
+## Development
+
+### Building
+```bash
+# Build for Android
+GOOS=android GOARCH=arm64 go build -o smsgap
+
+# Build for local testing
+go build -o smsgap
+```
+
+### Testing
+```bash
+# Run unit tests
+go test ./...
+
+# Run with coverage
+go test -cover ./...
+
+# Deploy and test on device
+./scripts/deploy.sh
+./scripts/test.sh
+```
+
+### Monitoring
+```bash
+# Watch logs in real-time
+./scripts/log.sh -t
+
+# Check recent logs
+./scripts/log.sh -n 50
+
+# Check health
+curl http://192.168.0.16:8000/health
+
+# List registered clients
+curl http://192.168.0.16:8000/clients
+```
+
+## Version History
+
+- **v0.3**: Basic webhook proxy with health checks
+- **v0.6**: Added client management and pruning
+- **v1.0**: Added retry logic for failed forwards
+- **v1.1**: Implemented graceful shutdown
+- **v1.3**: Added phone number filtering for sms:received
+- **v1.4**: Added webhook auto-repair
+- **v1.5**: Added SMS sending endpoint (proxy to SMS Gateway)
+- **v1.6**: Health endpoint now checks SMS Gateway connectivity
+
+## Security Considerations
+
+- Runs as root (required for Magisk service)
+- Password stored in root-only accessible file  
+- SMS Gateway (not smsgap) restricts its webhook URLs to `https://` or `http://127.0.0.1`
+- Client IDs limited to 128 characters to prevent abuse
+- Phone numbers validated against regex pattern
+
+## Troubleshooting
+
+### Webhooks not being received
+1. Check SMS Gateway is running: `curl -u sms:password http://192.168.0.16:8080/health`
+2. Check smsgap logs: `./scripts/log.sh -n 50`
+3. Verify webhooks are registered: `curl -u sms:password http://192.168.0.16:8080/webhooks`
+4. Check client registration: `curl http://192.168.0.16:8000/clients`
+
+### Deployment issues
+1. Ensure device is connected: `adb devices`
+2. Check .env file exists with password
+3. Verify Magisk is installed and su is available
+4. Check boot.log for startup errors: `adb shell su -c "cat /data/adb/service.d/boot.log"`
+
+### Auto-repair constantly re-registering
+This usually indicates SMS Gateway is losing webhooks. Check SMS Gateway logs and ensure it's not restarting frequently.
