@@ -14,3 +14,6 @@ wheels/
 
 # Go build outputs
 src/android/bin/
+
+# Database files
+.db/

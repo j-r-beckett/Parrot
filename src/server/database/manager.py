@@ -1,5 +1,6 @@
 import aiosqlite
 from aiosqlitepool import SQLiteConnectionPool
+import os
 
 
 async def init_database(db_pool: SQLiteConnectionPool) -> None:
@@ -19,9 +20,12 @@ async def init_database(db_pool: SQLiteConnectionPool) -> None:
         await db.commit()
 
 
-async def create_db_pool() -> SQLiteConnectionPool:
+async def create_db_pool(db_path: str) -> SQLiteConnectionPool:
+    # Create directory if it doesn't exist
+    os.makedirs(os.path.dirname(db_path), exist_ok=True)
+    
     async def sqlite_connection() -> aiosqlite.Connection:
-        return await aiosqlite.connect("conversations.db")
+        return await aiosqlite.connect(db_path)
     
     db_pool = SQLiteConnectionPool(connection_factory=sqlite_connection)
     await init_database(db_pool)

@@ -25,5 +25,6 @@
   "nominatim": {
     "api_url": "https://nominatim.openstreetmap.org",
     "user_agent": "clanker-0.1"
-  }
+  },
+  "conversations_db": ".db/conversations.db"
 }

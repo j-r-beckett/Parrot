@@ -37,7 +37,7 @@ async def lifespan(app: Litestar) -> AsyncGenerator[None, None]:
     assistant = Assistant(settings.llm)
     
     # Create database connection factory and pool
-    db_pool = await create_db_pool()
+    db_pool = await create_db_pool(settings.conversations_db)
     
     # Create clients
     settler_smsgap_client = create_smsgap_client(settings.sms.settler.smsgap_url)
