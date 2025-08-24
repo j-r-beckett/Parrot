@@ -6,6 +6,7 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"sync"
 	"time"
 )
 
@@ -204,32 +205,42 @@ func FilterByNumberExcludes(clients []*Client, phoneNumber string) []*Client {
 
 // forwardToClients forwards the webhook to the given clients
 func forwardToClients(clients []*Client, body []byte) {
+	var wg sync.WaitGroup
+	
 	for _, client := range clients {
-		// Try forwarding with up to 3 attempts
-		maxAttempts := 3
-		for attempt := 1; attempt <= maxAttempts; attempt++ {
-			resp, err := http.Post(client.WebhookURL, "application/json", bytes.NewBuffer(body))
-			if err != nil {
-				log.Printf("ERROR: Failed to forward to client %s (attempt %d/%d): %v", 
-					client.ID, attempt, maxAttempts, err)
-				if attempt < maxAttempts {
-					time.Sleep(time.Second)
-				}
-			} else {
-				defer resp.Body.Close()
-				
-				if resp.StatusCode >= 200 && resp.StatusCode < 300 {
-					log.Printf("Forwarded to client %s (status %d, attempt %d/%d)", 
-						client.ID, resp.StatusCode, attempt, maxAttempts)
-					break // Success, stop retrying
-				} else {
-					log.Printf("ERROR: Client %s returned status %d (attempt %d/%d)", 
-						client.ID, resp.StatusCode, attempt, maxAttempts)
+		wg.Add(1)
+		go func(client *Client) {
+			defer wg.Done()
+			
+			// Try forwarding with up to 3 attempts
+			maxAttempts := 3
+			for attempt := 1; attempt <= maxAttempts; attempt++ {
+				resp, err := http.Post(client.WebhookURL, "application/json", bytes.NewBuffer(body))
+				if err != nil {
+					log.Printf("ERROR: Failed to forward to client %s (attempt %d/%d): %v", 
+						client.ID, attempt, maxAttempts, err)
 					if attempt < maxAttempts {
 						time.Sleep(time.Second)
 					}
+				} else {
+					defer resp.Body.Close()
+					
+					if resp.StatusCode >= 200 && resp.StatusCode < 300 {
+						log.Printf("Forwarded to client %s (status %d, attempt %d/%d)", 
+							client.ID, resp.StatusCode, attempt, maxAttempts)
+						break // Success, stop retrying
+					} else {
+						log.Printf("ERROR: Client %s returned status %d (attempt %d/%d)", 
+							client.ID, resp.StatusCode, attempt, maxAttempts)
+						if attempt < maxAttempts {
+							time.Sleep(time.Second)
+						}
+					}
 				}
 			}
-		}
+		}(client)
 	}
+	
+	// Wait for all forwards to complete
+	wg.Wait()
 }

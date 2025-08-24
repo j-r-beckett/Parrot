@@ -47,6 +47,7 @@ scripts/adb-run.sh "mv /data/local/tmp/smsgap $DEPLOY_DIR/smsgap && chmod +x $DE
 scripts/adb-run.sh "mv /data/local/tmp/boot.sh $DEPLOY_DIR/boot.sh && chmod +x $DEPLOY_DIR/boot.sh"
 
 # Create password directory and write password file
+echo "Writing SMS Gateway password to /data/adb/smsgap/password.txt"
 scripts/adb-run.sh "mkdir -p /data/adb/smsgap && chmod 700 /data/adb/smsgap"
 scripts/adb-run.sh "echo '$SMS_GATEWAY_PASS' > /data/adb/smsgap/password.txt && chmod 600 /data/adb/smsgap/password.txt"
 

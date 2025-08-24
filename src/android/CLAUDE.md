@@ -75,6 +75,7 @@ This enables sophisticated routing scenarios. For example, a production/PPE setu
 ```
 
 ### Reliability Features
+- **Parallel Forwarding**: Webhooks are forwarded to all clients simultaneously for optimal performance
 - **Retry Logic**: Failed webhook forwards are retried 3 times with 1-second delays
 - **Client Pruning**: Inactive clients (>60 seconds) are automatically removed
 - **Webhook Auto-Repair**: Checks every 30 seconds that SMS Gateway webhooks are registered, re-registers if missing
@@ -287,6 +288,7 @@ curl http://192.168.0.16:8000/clients
 - **v1.4**: Added webhook auto-repair
 - **v1.5**: Added SMS sending endpoint (proxy to SMS Gateway)
 - **v1.6**: Health endpoint now checks SMS Gateway connectivity
+- **v1.7**: Parallel webhook forwarding for better performance
 
 ## Security Considerations
 

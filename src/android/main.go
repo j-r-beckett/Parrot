@@ -16,7 +16,7 @@ import (
 const (
 	serverPort       = "8000"
 	smsGatewayPort   = "8080"
-	version          = "1.6"
+	version          = "1.7"
 	healthCheckRetry = 10 * time.Second
 	smsGatewayUser   = "sms"
 	passwordFile     = "/data/adb/smsgap/password.txt"
