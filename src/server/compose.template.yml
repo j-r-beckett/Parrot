@@ -1,0 +1,13 @@
+services:
+  clanker-server:
+    image: ${REGISTRY}/clanker:${RING}-${VERSION}
+    restart: unless-stopped
+    ports:
+      - "8010:8000"
+    environment:
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+      - HOST_URL=${CLANKER_SERVER_URL}
+      - SMSGAP_URL=${SMSGAP_URL}
+      - CONVERSATIONS_DB=/data/conversations.db
+    volumes:
+      - ./data:/data
