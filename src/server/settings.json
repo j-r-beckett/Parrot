@@ -16,7 +16,7 @@
     "api_key": "@format {env[CLANKER_ANTHROPIC_API_KEY]}"
   },
   "webhook": {
-    "base_url": "http://192.168.0.19:8000"
+    "base_url": "@format {env[APP_URL]}"
   },
   "nws": {
     "api_url": "https://api.weather.gov",
