@@ -4,12 +4,8 @@ from aiosqlitepool import SQLiteConnectionPool
 from assistant.llm import Assistant
 
 
-async def get_settler_smsgap_client(state: State) -> httpx.AsyncClient:
-    return state.settler_smsgap_client
-
-
-async def get_nomad_smsgap_client(state: State) -> httpx.AsyncClient:
-    return state.nomad_smsgap_client
+async def get_smsgap_client(state: State) -> httpx.AsyncClient:
+    return state.smsgap_client
 
 
 async def get_weather_httpx_client(state: State) -> httpx.AsyncClient:

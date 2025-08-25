@@ -12,41 +12,39 @@ from clients.smsgap import create_smsgap_client, register_and_maintain
 
 @asynccontextmanager
 async def lifespan(app: Litestar) -> AsyncGenerator[None, None]:
-
     weather_httpx_client = httpx.AsyncClient(
         base_url=settings.nws.api_url,
         headers={"User-Agent": settings.nws.user_agent},
         timeout=10.0,
         follow_redirects=True,
     )
-    
+
     nominatim_httpx_client = httpx.AsyncClient(
         base_url=settings.nominatim.api_url,
         headers={"User-Agent": settings.nominatim.user_agent},
         timeout=10.0,
         follow_redirects=True,
     )
-    
+
     valhalla_httpx_client = httpx.AsyncClient(
         base_url="https://valhalla1.openstreetmap.de",
         timeout=10.0,
         follow_redirects=True,
     )
-    
+
     # Create the Assistant instance
     assistant = Assistant(settings.llm)
-    
+
     # Create database connection factory and pool
-    db_pool = await create_db_pool(settings.conversations_db)
-    
+    db_pool = await create_db_pool(settings.conversations_db, app.logger)
+
     # Create clients
-    settler_smsgap_client = create_smsgap_client(settings.sms.settler.smsgap_url)
-    nomad_smsgap_client = create_smsgap_client(settings.sms.nomad.smsgap_url)
-    
-    # Start smsgap registration task for settler only
-    settler_registration_task = asyncio.create_task(
+    smsgap_client = create_smsgap_client(settings.smsgap_url)
+
+    # Start smsgap registration task
+    registration_task = asyncio.create_task(
         register_and_maintain(
-            settler_smsgap_client,
+            smsgap_client,
             client_id="clanker-server",
             webhook_url=f"{settings.webhook.base_url}/webhook/smsgap",
             logger=app.logger,
@@ -54,29 +52,27 @@ async def lifespan(app: Litestar) -> AsyncGenerator[None, None]:
             on_delivered=True,  # We want delivery notifications
         )
     )
-    
+
     # Store clients in app state
-    app.state.settler_smsgap_client = settler_smsgap_client
-    app.state.nomad_smsgap_client = nomad_smsgap_client
+    app.state.smsgap_client = smsgap_client
     app.state.weather_httpx_client = weather_httpx_client
     app.state.nominatim_httpx_client = nominatim_httpx_client
     app.state.valhalla_httpx_client = valhalla_httpx_client
     app.state.assistant = assistant
     app.state.db_pool = db_pool
-    
+
     try:
         yield
     finally:
         # Cancel registration task
-        settler_registration_task.cancel()
+        registration_task.cancel()
         try:
-            await settler_registration_task
+            await registration_task
         except asyncio.CancelledError:
             pass
-        
+
         # Close all clients
-        await settler_smsgap_client.aclose()
-        await nomad_smsgap_client.aclose()
+        await smsgap_client.aclose()
         await weather_httpx_client.aclose()
         await nominatim_httpx_client.aclose()
         await valhalla_httpx_client.aclose()
