@@ -19,8 +19,12 @@
 |         |                                 |
 |         v                                 |
 | +------------------+     +--------------+ |
-| | SMS Gateway      |---->|   smsgap     | |
-| | (port 8080)      |     | (port 8000)  | |
+| | SMS Gateway      |---->| smsgap       | |
+| | (port 8080)      |     | Webhook:     | |
+| |                  |     | 127.0.0.1:*  | |
+| |                  |     |              | |
+| |                  |     | API:         | |
+| |                  |     | host:port    | |
 | +------------------+     +--------------+ |
 |                                  |        |
 +-------------------------------------------+
@@ -35,9 +39,19 @@
                        +-----+           +------+
 ```
 
-When SMS events occur (received, sent, delivered, failed), SMS Gateway sends webhooks to smsgap on localhost:8000. smsgap then forwards these webhooks to all registered clients based on their subscription preferences and filtering rules.
+### Dual Router Architecture
 
-Backend servers can also send SMS messages through smsgap's `/send` endpoint, which proxies the request to SMS Gateway. This means backend servers only need to connect to smsgap for both sending and receiving SMS functionality.
+smsgap runs two separate HTTP servers to handle different security requirements:
+
+1. **Webhook Server** (`127.0.0.1:random-port`): Receives webhooks from SMS Gateway. Uses a randomly assigned available port since SMS Gateway will call whatever URL smsgap registers with it.
+
+2. **API Server** (`host:port`): Handles client registration, health checks, SMS sending, and client management. The host and port are configurable via command-line arguments.
+
+This dual setup is necessary because SMS Gateway restricts webhook URLs to localhost (`127.0.0.1`) for security, while the API server can bind to any interface for external access.
+
+When SMS events occur (received, sent, delivered, failed), SMS Gateway sends webhooks to the webhook server. smsgap then forwards these webhooks to all registered clients via the API server based on their subscription preferences and filtering rules.
+
+Backend servers connect to the API server for registration and SMS sending, providing a single point of contact for both sending and receiving SMS functionality.
 
 ## Key Features
 
@@ -155,8 +169,9 @@ The `scripts/` directory contains essential tools for managing smsgap on Android
 ### deploy.sh
 Builds and deploys smsgap to the Android device. Handles:
 - Cross-compilation for Android ARM64
-- Binary and script deployment
-- Password file creation from .env
+- Boot script generation from `boot.template.sh` using `envsubst` with `SETTLER_IP` and `SMSGAP_PORT`
+- Binary and boot script deployment via ADB and Magisk
+- Password file creation from environment variables
 - Graceful service restart (waits for old instance to stop)
 
 Usage: `./scripts/deploy.sh [-d DEPLOY_DIR]`
@@ -169,12 +184,16 @@ Usage: `./scripts/mgsk-run.sh DEVICE_SERIAL "command"`
 Example: `./scripts/mgsk-run.sh "$SETTLER_SERIAL" "tail -f /data/adb/service.d/smsgap.log"`
 
 ### boot.sh
-Boot script deployed to the device that:
+Boot script generated from `boot.template.sh` during deployment. The template uses environment variable substitution for:
+- `${SETTLER_IP}`: IP address for the API server
+- `${SMSGAP_PORT}`: Port for the API server
+
+The deployed script:
 - Waits for device boot completion
 - Disables Doze mode
 - Prevents WiFi sleep
 - Kills any existing smsgap process on the port
-- Starts smsgap service
+- Starts smsgap service with configured host and port
 
 Automatically runs on device boot when placed in `/data/adb/service.d/`.
 
@@ -235,16 +254,33 @@ SETTLER_IP=192.168.0.16     # Required for ADB access and HTTP requests
 NOMAD_IP=192.168.0.15       # Required for ADB access and HTTP requests
 SETTLER_SERIAL=192.168.0.16:42599  # Auto-generated from SETTLER_IP
 NOMAD_SERIAL=192.168.0.15:40521    # Auto-generated from NOMAD_IP
+SETTLER_IP=100.107.61.95            # Settler device Tailscale IP
+NOMAD_IP=100.87.185.101             # Nomad device Tailscale IP  
+SMSGAP_PORT=8000                     # Port for smsgap on both devices
 ```
 
 The `SETTLER_IP` and `NOMAD_IP` variables are required so that:
 - HTTP requests can be made to smsgap endpoints
 - ADB device serials can be automatically inferred from connected devices
 
-### Constants
-Configured in `main.go`:
-- Server port: 8000
-- SMS Gateway port: 8080  
+The `SETTLER_IP`/`NOMAD_IP` and `SMSGAP_PORT` variables configure where each device's API server binds:
+- Use a Tailscale IP for secure, encrypted access
+- Use `127.0.0.1` with a reverse proxy for TLS termination and authentication
+
+### Configuration
+
+smsgap accepts the following command-line arguments:
+- `-host`: IP address to bind the API server to (required)
+- `-port`: Port for the API server (required) 
+- `-password`: SMS Gateway password (optional, uses password file if not specified)
+
+**Security Options:**
+- **Tailscale IP**: Bind to a Tailscale IP for secure, encrypted access without exposing the service publicly
+- **Localhost + Reverse Proxy**: Bind to `127.0.0.1` and use a reverse proxy (nginx, Caddy) for TLS termination and authentication
+
+**Internal Constants:**
+- SMS Gateway port: 8080
+- Webhook server: Random available port on 127.0.0.1
 - Client timeout: 60 seconds
 - Webhook check interval: 30 seconds
 - Retry attempts: 3

@@ -98,6 +98,14 @@ fi
 
 run_step "Preparing deployment directory on remote server..." ssh jimmy@192.168.0.12 "mkdir -p $DEPLOY_DIR"
 
+echo "Setting environment-specific host port..."
+if [ "$RING" = "ppe" ]; then
+    export CLANKER_SERVER_HOST_PORT="$CLANKER_SERVER_HOST_PORT_PPE"
+elif [ "$RING" = "prod" ]; then
+    export CLANKER_SERVER_HOST_PORT="$CLANKER_SERVER_HOST_PORT_PROD"
+fi
+echo "Port: $CLANKER_SERVER_HOST_PORT"
+
 echo "Generating docker-compose configuration..."
 COMPOSE_CONTENT=$(envsubst < compose.template.yml)
 

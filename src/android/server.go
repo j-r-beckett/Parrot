@@ -26,8 +26,8 @@ type RegisterRequest struct {
 	ExcludeReceivedFrom []string `json:"exclude_received_from,omitempty"`
 }
 
-// SetupRouter creates and configures the HTTP router
-func SetupRouter(version string, clientManager *ClientManager, smsClient *SMSGatewayClient) *chi.Mux {
+// SetupAPIRouter creates the API router for external client access
+func SetupAPIRouter(version string, clientManager *ClientManager, smsClient *SMSGatewayClient) *chi.Mux {
 	r := chi.NewRouter()
 	r.Use(middleware.Logger)
 	r.Use(middleware.Recoverer)
@@ -154,7 +154,16 @@ func SetupRouter(version string, clientManager *ClientManager, smsClient *SMSGat
 		json.NewEncoder(w).Encode(result)
 	})
 	
-	// Webhook endpoints
+	return r
+}
+
+// SetupWebhookRouter creates the webhook router for SMS Gateway callbacks
+func SetupWebhookRouter(clientManager *ClientManager) *chi.Mux {
+	r := chi.NewRouter()
+	r.Use(middleware.Logger)
+	r.Use(middleware.Recoverer)
+
+	// Webhook endpoints only
 	r.Post("/webhook/received", CreateWebhookHandler("received", clientManager))
 	r.Post("/webhook/sent", CreateWebhookHandler("sent", clientManager))
 	r.Post("/webhook/delivered", CreateWebhookHandler("delivered", clientManager))
@@ -183,7 +192,7 @@ func CleanupWebhooks(client *SMSGatewayClient) error {
 }
 
 // SetupWebhooks clears existing webhooks and registers new ones
-func SetupWebhooks(client *SMSGatewayClient, serverPort string) error {
+func SetupWebhooks(client *SMSGatewayClient, webhookPort string) error {
 	// Get existing webhooks
 	log.Printf("Getting existing webhooks")
 	webhooks, err := client.GetWebhooks()
@@ -205,7 +214,7 @@ func SetupWebhooks(client *SMSGatewayClient, serverPort string) error {
 		log.Printf("Registering webhook for %s", event)
 		// Remove sms: prefix
 		eventPath := event[4:]
-		callbackURL := fmt.Sprintf("http://127.0.0.1:%s/webhook/%s", serverPort, eventPath)
+		callbackURL := fmt.Sprintf("http://127.0.0.1:%s/webhook/%s", webhookPort, eventPath)
 		if err := client.RegisterWebhook(event, callbackURL); err != nil {
 			return fmt.Errorf("failed to register webhook for %s: %v", event, err)
 		}
@@ -216,7 +225,7 @@ func SetupWebhooks(client *SMSGatewayClient, serverPort string) error {
 }
 
 // RepairWebhooks checks if our webhooks are registered and repairs them if needed
-func RepairWebhooks(client *SMSGatewayClient, serverPort string) error {
+func RepairWebhooks(client *SMSGatewayClient, webhookPort string) error {
 	log.Printf("[WebhookAutoRepair] Checking webhook registrations")
 	
 	// Get current webhooks
@@ -230,7 +239,7 @@ func RepairWebhooks(client *SMSGatewayClient, serverPort string) error {
 	for _, webhook := range webhooks {
 		// Remove sms: prefix
 		eventPath := webhook.Event[4:]
-		expectedURL := fmt.Sprintf("http://127.0.0.1:%s/webhook/%s", serverPort, eventPath)
+		expectedURL := fmt.Sprintf("http://127.0.0.1:%s/webhook/%s", webhookPort, eventPath)
 		if webhook.URL == expectedURL {
 			existingWebhooks[webhook.Event] = true
 		} else {
@@ -251,7 +260,7 @@ func RepairWebhooks(client *SMSGatewayClient, serverPort string) error {
 			log.Printf("[WebhookAutoRepair] Webhook missing for %s, repairing...", event)
 			// Remove sms: prefix
 			eventPath := event[4:]
-			callbackURL := fmt.Sprintf("http://127.0.0.1:%s/webhook/%s", serverPort, eventPath)
+			callbackURL := fmt.Sprintf("http://127.0.0.1:%s/webhook/%s", webhookPort, eventPath)
 			if err := client.RegisterWebhook(event, callbackURL); err != nil {
 				log.Printf("[WebhookAutoRepair] ERROR: Failed to register webhook for %s: %v", event, err)
 			} else {

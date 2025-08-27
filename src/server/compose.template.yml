@@ -3,11 +3,11 @@ services:
     image: ${REGISTRY}/clanker:${RING}-${VERSION}
     restart: unless-stopped
     ports:
-      - "8010:8000"
+      - "${CLANKER_SERVER_HOST_IP}:${CLANKER_SERVER_HOST_PORT}:8000"
     environment:
       - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
-      - HOST_URL=${CLANKER_SERVER_URL}
-      - SMSGAP_URL=${SMSGAP_URL}
+      - HOST_URL=http://${CLANKER_SERVER_HOST_IP}:${CLANKER_SERVER_HOST_PORT}
+      - SMSGAP_URL=http://${SETTLER_IP}:${SMSGAP_PORT}
       - CONVERSATIONS_DB=/data/conversations.db
     volumes:
       - ./data:/data

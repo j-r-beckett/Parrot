@@ -29,9 +29,13 @@ cd "$(dirname "$0")/.."
 # Build for Android ARM64
 GOOS=android GOARCH=arm64 go build -o bin/smsgap .
 
+# Generate boot script from template
+echo "Generating boot script from template..."
+envsubst '$SETTLER_IP,$SMSGAP_PORT' < scripts/boot.template.sh > /tmp/boot.sh
+
 # Deploy binary and boot script to device
 adb -s "$SETTLER_SERIAL" push bin/smsgap /data/local/tmp/smsgap
-adb -s "$SETTLER_SERIAL" push scripts/boot.sh /data/local/tmp/boot.sh
+adb -s "$SETTLER_SERIAL" push /tmp/boot.sh /data/local/tmp/boot.sh
 scripts/mgsk-run.sh "$SETTLER_SERIAL" "mv /data/local/tmp/smsgap $DEPLOY_DIR/smsgap && chmod +x $DEPLOY_DIR/smsgap"
 scripts/mgsk-run.sh "$SETTLER_SERIAL" "mv /data/local/tmp/boot.sh $DEPLOY_DIR/boot.sh && chmod +x $DEPLOY_DIR/boot.sh"
 

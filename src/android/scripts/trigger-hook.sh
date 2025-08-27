@@ -77,10 +77,6 @@ else
     NOMAD_NUMBER="$CLANKER_SMS_GATEWAY_NOMAD_NUMBER"
 fi
 
-# Device configurations
-SETTLER_IP="192.168.0.16"
-NOMAD_IP="192.168.0.15"
-
 # Check both SMS Gateways are up
 echo "Checking SMS Gateway health on both devices..."
 

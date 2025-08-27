@@ -15,7 +15,6 @@ import (
 )
 
 const (
-	serverPort       = "8000"
 	smsGatewayPort   = "8080"
 	version          = "1.8"
 	healthCheckRetry = 10 * time.Second
@@ -23,15 +22,42 @@ const (
 	passwordFile     = "/data/adb/smsgap/password.txt"
 )
 
+// getLocalIP returns the device's local network IP address
+func getLocalIP() (string, error) {
+	addrs, err := net.InterfaceAddrs()
+	if err != nil {
+		return "", err
+	}
+
+	for _, addr := range addrs {
+		if ipnet, ok := addr.(*net.IPNet); ok && !ipnet.IP.IsLoopback() {
+			if ipnet.IP.To4() != nil && ipnet.IP.IsPrivate() {
+				return ipnet.IP.String(), nil
+			}
+		}
+	}
+	return "", fmt.Errorf("no local IP address found")
+}
+
 func main() {
 	log.Printf("[%s] Starting smsgap v%s", time.Now().Format("2006-01-02 15:04:05"), version)
 	log.Printf("DEBUG: os.Args = %v", os.Args)
 	
 	// Parse command line arguments
-	var passwordArg string
+	var passwordArg, host, port string
 	flag.StringVar(&passwordArg, "password", "", "SMS Gateway password (optional, uses password file if not specified)")
+	flag.StringVar(&host, "host", "", "Host IP address to bind to (required)")
+	flag.StringVar(&port, "port", "", "Port to bind to (required)")
 	flag.Parse()
 	log.Printf("DEBUG: After parse, password flag = %q", passwordArg)
+
+	// Validate required arguments
+	if host == "" {
+		log.Fatalf("FATAL: -host argument is required")
+	}
+	if port == "" {
+		log.Fatalf("FATAL: -port argument is required")
+	}
 
 	// Get SMS Gateway password from command line or file
 	var smsGatewayPass string
@@ -48,16 +74,33 @@ func main() {
 		log.Printf("Using password from file %s", passwordFile)
 	}
 	
-	// Check if port is available
-	listener, err := net.Listen("tcp", ":"+serverPort)
+	// Check if API server port is available
+	serverAddr := net.JoinHostPort(host, port)
+	listener, err := net.Listen("tcp", serverAddr)
 	if err != nil {
-		log.Fatalf("FATAL: Port %s is not available: %v", serverPort, err)
+		log.Fatalf("FATAL: Address %s is not available: %v", serverAddr, err)
 	}
 	listener.Close()
 	
+	// Find an available port for webhook server
+	webhookListener, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		log.Fatalf("FATAL: Failed to find available port for webhook server: %v", err)
+	}
+	webhookPort := fmt.Sprintf("%d", webhookListener.Addr().(*net.TCPAddr).Port)
+	webhookListener.Close()
+	log.Printf("Using port %s for webhook server", webhookPort)
+	
+	// Get local IP to connect to SMS Gateway
+	localIP, err := getLocalIP()
+	if err != nil {
+		log.Fatalf("FATAL: Failed to get local IP: %v", err)
+	}
+	log.Printf("Detected local IP: %s", localIP)
+	
 	// Wait for SMS Gateway to be available
 	log.Printf("Checking SMS Gateway health on port %s", smsGatewayPort)
-	smsGatewayURL := fmt.Sprintf("http://localhost:%s", smsGatewayPort)
+	smsGatewayURL := fmt.Sprintf("http://%s:%s", localIP, smsGatewayPort)
 	startTime := time.Now()
 	for {
 		err := CheckSMSGatewayHealth(smsGatewayURL)
@@ -76,7 +119,7 @@ func main() {
 	
 	// Setup webhooks with SMS Gateway
 	smsClient := NewSMSGatewayClient(smsGatewayURL, smsGatewayUser, smsGatewayPass)
-	if err := SetupWebhooks(smsClient, serverPort); err != nil {
+	if err := SetupWebhooks(smsClient, webhookPort); err != nil {
 		log.Fatalf("FATAL: Failed to setup webhooks: %v", err)
 	}
 
@@ -93,7 +136,7 @@ func main() {
 		for {
 			select {
 			case <-ticker.C:
-				if err := RepairWebhooks(smsClient, serverPort); err != nil {
+				if err := RepairWebhooks(smsClient, webhookPort); err != nil {
 					log.Printf("[WebhookAutoRepair] ERROR: Failed to repair webhooks: %v", err)
 				}
 			case <-stopAutoRepair:
@@ -103,24 +146,39 @@ func main() {
 		}
 	}()
 	
-	// Create and configure router
-	r := SetupRouter(version, clientManager, smsClient)
+	// Create routers
+	apiRouter := SetupAPIRouter(version, clientManager, smsClient)
+	webhookRouter := SetupWebhookRouter(clientManager)
 
-	// Start server
-	log.Printf("Starting HTTP server on port %s", serverPort)
-	server := &http.Server{
-		Addr:    ":" + serverPort,
-		Handler: r,
+	// Start API server on host:port
+	log.Printf("Starting API server on %s", serverAddr)
+	apiServer := &http.Server{
+		Addr:    serverAddr,
+		Handler: apiRouter,
+	}
+
+	// Start webhook server on 127.0.0.1:webhookPort
+	webhookAddr := net.JoinHostPort("127.0.0.1", webhookPort)
+	log.Printf("Starting webhook server on %s", webhookAddr)
+	webhookServer := &http.Server{
+		Addr:    webhookAddr,
+		Handler: webhookRouter,
 	}
 
 	// Setup signal handling for graceful shutdown
 	sigChan := make(chan os.Signal, 1)
 	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
 	
-	// Start server in goroutine
+	// Start both servers in goroutines
 	go func() {
-		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-			log.Fatalf("FATAL: Failed to start server: %v", err)
+		if err := apiServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			log.Fatalf("FATAL: Failed to start API server: %v", err)
+		}
+	}()
+	
+	go func() {
+		if err := webhookServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			log.Fatalf("FATAL: Failed to start webhook server: %v", err)
 		}
 	}()
 	
@@ -134,12 +192,16 @@ func main() {
 	// Stop client manager pruning
 	clientManager.Stop()
 	
-	// Shutdown HTTP server (waits for active requests to complete)
+	// Shutdown both HTTP servers (waits for active requests to complete)
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 	
-	if err := server.Shutdown(ctx); err != nil {
-		log.Printf("ERROR: Server shutdown failed: %v", err)
+	if err := apiServer.Shutdown(ctx); err != nil {
+		log.Printf("ERROR: API server shutdown failed: %v", err)
+	}
+	
+	if err := webhookServer.Shutdown(ctx); err != nil {
+		log.Printf("ERROR: Webhook server shutdown failed: %v", err)
 	}
 	
 	// Clean up webhooks from SMS Gateway
