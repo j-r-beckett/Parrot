@@ -7,16 +7,15 @@ import (
 
 // Client represents a registered webhook client
 type Client struct {
-	ID                  string    `json:"id"`
-	WebhookURL          string    `json:"webhook_url"`
-	RegisteredAt        time.Time `json:"registered_at"`
-	LastSeen            time.Time `json:"last_seen"`
-	SmsReceived         bool      `json:"sms_received"`
-	SmsSent             bool      `json:"sms_sent"`
-	SmsDelivered        bool      `json:"sms_delivered"`
-	SmsFailed           bool      `json:"sms_failed"`
-	IncludeReceivedFrom []string  `json:"include_received_from,omitempty"`
-	ExcludeReceivedFrom []string  `json:"exclude_received_from,omitempty"`
+	ID           string    `json:"id"`
+	WebhookURL   string    `json:"webhook_url"`
+	Ring         string    `json:"ring"`
+	RegisteredAt time.Time `json:"registered_at"`
+	LastSeen     time.Time `json:"last_seen"`
+	SmsReceived  bool      `json:"sms_received"`
+	SmsSent      bool      `json:"sms_sent"`
+	SmsDelivered bool      `json:"sms_delivered"`
+	SmsFailed    bool      `json:"sms_failed"`
 }
 
 // ClientManager manages registered clients with thread-safe operations

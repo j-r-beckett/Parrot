@@ -36,22 +36,92 @@ func PrivateIPOnlyMiddleware(privateIP string) func(http.Handler) http.Handler {
 
 // RegisterRequest represents the client registration request
 type RegisterRequest struct {
-	ID                  string   `json:"id"`
-	WebhookURL          string   `json:"webhook_url"`
-	SmsReceived         bool     `json:"sms_received"`
-	SmsSent             bool     `json:"sms_sent"`
-	SmsDelivered        bool     `json:"sms_delivered"`
-	SmsFailed           bool     `json:"sms_failed"`
-	IncludeReceivedFrom []string `json:"include_received_from,omitempty"`
-	ExcludeReceivedFrom []string `json:"exclude_received_from,omitempty"`
+	ID           string `json:"id"`
+	WebhookURL   string `json:"webhook_url"`
+	Ring         string `json:"ring"`
+	SmsReceived  bool   `json:"sms_received"`
+	SmsSent      bool   `json:"sms_sent"`
+	SmsDelivered bool   `json:"sms_delivered"`
+	SmsFailed    bool   `json:"sms_failed"`
 }
 
 // SetupAPIRouter creates the API router for external client access
-func SetupAPIRouter(version string, clientManager *ClientManager, smsClient *SMSGatewayClient, privateIP string) *chi.Mux {
+func SetupAPIRouter(version string, clientManager *ClientManager, smsClient *SMSGatewayClient, allowlistManager *AllowlistManager, privateIP string) *chi.Mux {
 	r := chi.NewRouter()
 	r.Use(middleware.Logger)
 	r.Use(middleware.Recoverer)
 	r.Use(PrivateIPOnlyMiddleware(privateIP))
+
+	// Allowlist routing endpoints
+	r.Post("/allowlist", func(w http.ResponseWriter, r *http.Request) {
+		number := r.URL.Query().Get("number")
+		ring := r.URL.Query().Get("ring")
+		if number == "" {
+			http.Error(w, "number parameter is required", http.StatusBadRequest)
+			return
+		}
+		if ring == "" {
+			http.Error(w, "ring parameter is required", http.StatusBadRequest)
+			return
+		}
+
+		// Validate ring
+		if ring != "prod" && ring != "ppe" {
+			http.Error(w, "ring must be 'prod' or 'ppe'", http.StatusBadRequest)
+			return
+		}
+
+		// Validate phone number format
+		if !phoneNumberRegex.MatchString(number) {
+			http.Error(w, fmt.Sprintf("Invalid phone number: %s", number), http.StatusBadRequest)
+			return
+		}
+
+		// Add to allowlist
+		if err := allowlistManager.AddNumber(number, ring); err != nil {
+			log.Printf("ERROR: Failed to add allowlist number %s: %v", number, err)
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		json.NewEncoder(w).Encode(map[string]string{"status": "added", "number": number, "ring": ring})
+	})
+
+	r.Get("/allowlist", func(w http.ResponseWriter, r *http.Request) {
+		numbers := allowlistManager.GetAllNumbers()
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		json.NewEncoder(w).Encode(map[string]map[string]string{"allowed_numbers": numbers})
+	})
+
+	r.Get("/allowlist/{ring}", func(w http.ResponseWriter, r *http.Request) {
+		ring := chi.URLParam(r, "ring")
+		numbers := allowlistManager.GetNumbersForRing(ring)
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		json.NewEncoder(w).Encode(map[string]interface{}{"ring": ring, "numbers": numbers})
+	})
+
+	r.Delete("/allowlist", func(w http.ResponseWriter, r *http.Request) {
+		number := r.URL.Query().Get("number")
+		if number == "" {
+			http.Error(w, "number parameter is required", http.StatusBadRequest)
+			return
+		}
+
+		// Remove from allowlist
+		if err := allowlistManager.RemoveNumber(number); err != nil {
+			log.Printf("ERROR: Failed to remove allowlist number %s: %v", number, err)
+			http.Error(w, "Failed to remove number", http.StatusInternalServerError)
+			return
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		json.NewEncoder(w).Encode(map[string]string{"status": "removed", "number": number})
+	})
 
 	// Health endpoint
 	r.Get("/health", func(w http.ResponseWriter, r *http.Request) {
@@ -91,36 +161,25 @@ func SetupAPIRouter(version string, clientManager *ClientManager, smsClient *SMS
 			return
 		}
 
-		// Validate that both include and exclude lists are not specified
-		if len(req.IncludeReceivedFrom) > 0 && len(req.ExcludeReceivedFrom) > 0 {
-			http.Error(w, "Cannot specify both include_received_from and exclude_received_from", http.StatusBadRequest)
+		// Validate ring
+		if req.Ring == "" {
+			http.Error(w, "ring is required", http.StatusBadRequest)
 			return
 		}
-
-		// Validate phone numbers if provided
-		for _, num := range req.IncludeReceivedFrom {
-			if !phoneNumberRegex.MatchString(num) {
-				http.Error(w, fmt.Sprintf("Invalid phone number in include_received_from: %s", num), http.StatusBadRequest)
-				return
-			}
-		}
-		for _, num := range req.ExcludeReceivedFrom {
-			if !phoneNumberRegex.MatchString(num) {
-				http.Error(w, fmt.Sprintf("Invalid phone number in exclude_received_from: %s", num), http.StatusBadRequest)
-				return
-			}
+		if req.Ring != "prod" && req.Ring != "ppe" {
+			http.Error(w, "ring must be 'prod' or 'ppe'", http.StatusBadRequest)
+			return
 		}
 
 		// Register the client
 		client := &Client{
-			ID:                  req.ID,
-			WebhookURL:          req.WebhookURL,
-			SmsReceived:         req.SmsReceived,
-			SmsSent:             req.SmsSent,
-			SmsDelivered:        req.SmsDelivered,
-			SmsFailed:           req.SmsFailed,
-			IncludeReceivedFrom: req.IncludeReceivedFrom,
-			ExcludeReceivedFrom: req.ExcludeReceivedFrom,
+			ID:           req.ID,
+			WebhookURL:   req.WebhookURL,
+			Ring:         req.Ring,
+			SmsReceived:  req.SmsReceived,
+			SmsSent:      req.SmsSent,
+			SmsDelivered: req.SmsDelivered,
+			SmsFailed:    req.SmsFailed,
 		}
 
 		clientManager.Register(req.ID, client)
@@ -181,16 +240,16 @@ func SetupAPIRouter(version string, clientManager *ClientManager, smsClient *SMS
 }
 
 // SetupWebhookRouter creates the webhook router for SMS Gateway callbacks
-func SetupWebhookRouter(clientManager *ClientManager) *chi.Mux {
+func SetupWebhookRouter(clientManager *ClientManager, allowlistManager *AllowlistManager) *chi.Mux {
 	r := chi.NewRouter()
 	r.Use(middleware.Logger)
 	r.Use(middleware.Recoverer)
 
 	// Webhook endpoints only
-	r.Post("/webhook/received", CreateWebhookHandler("received", clientManager))
-	r.Post("/webhook/sent", CreateWebhookHandler("sent", clientManager))
-	r.Post("/webhook/delivered", CreateWebhookHandler("delivered", clientManager))
-	r.Post("/webhook/failed", CreateWebhookHandler("failed", clientManager))
+	r.Post("/webhook/received", CreateWebhookHandler("received", clientManager, allowlistManager))
+	r.Post("/webhook/sent", CreateWebhookHandler("sent", clientManager, allowlistManager))
+	r.Post("/webhook/delivered", CreateWebhookHandler("delivered", clientManager, allowlistManager))
+	r.Post("/webhook/failed", CreateWebhookHandler("failed", clientManager, allowlistManager))
 
 	return r
 }

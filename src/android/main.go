@@ -20,6 +20,7 @@ const (
 	healthCheckRetry = 10 * time.Second
 	smsGatewayUser   = "sms"
 	passwordFile     = "/data/adb/smsgap/password.txt"
+	databaseFile     = "/data/adb/smsgap/allowlist.db"
 )
 
 // getLocalIP returns the device's local network IP address
@@ -129,6 +130,12 @@ func main() {
 	clientManager := NewClientManager()
 	clientManager.StartPruning()
 
+	// Create allowlist manager
+	allowlistManager, err := NewAllowlistManager(databaseFile)
+	if err != nil {
+		log.Fatalf("FATAL: Failed to create allowlist manager: %v", err)
+	}
+
 	// Start webhook auto-repair goroutine
 	stopAutoRepair := make(chan struct{})
 	go func() {
@@ -149,8 +156,8 @@ func main() {
 	}()
 
 	// Create routers
-	apiRouter := SetupAPIRouter(version, clientManager, smsClient, privateIP)
-	webhookRouter := SetupWebhookRouter(clientManager)
+	apiRouter := SetupAPIRouter(version, clientManager, smsClient, allowlistManager, privateIP)
+	webhookRouter := SetupWebhookRouter(clientManager, allowlistManager)
 
 	// Start API server on host:port
 	log.Printf("Starting API server on %s", serverAddr)
@@ -193,6 +200,11 @@ func main() {
 
 	// Stop client manager pruning
 	clientManager.Stop()
+
+	// Close allowlist manager database
+	if err := allowlistManager.Close(); err != nil {
+		log.Printf("ERROR: Failed to close allowlist manager: %v", err)
+	}
 
 	// Shutdown both HTTP servers (waits for active requests to complete)
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)

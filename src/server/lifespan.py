@@ -47,6 +47,7 @@ async def lifespan(app: Litestar) -> AsyncGenerator[None, None]:
             smsgap_client,
             client_id=f"clanker-{settings.ring}",
             webhook_url=f"{settings.webhook.base_url}/webhook/smsgap",
+            ring=settings.ring,
             logger=app.logger,
             on_received=True,  # We want to receive SMS
             on_delivered=True,  # We want delivery notifications

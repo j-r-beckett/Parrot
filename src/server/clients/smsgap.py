@@ -29,6 +29,7 @@ async def register_and_maintain(
     client: httpx.AsyncClient,
     client_id: str,
     webhook_url: str,
+    ring: str,
     logger: Logger,
     on_received: bool = False,
     on_delivered: bool = False,
@@ -37,6 +38,7 @@ async def register_and_maintain(
     registration = {
         "id": client_id,
         "webhook_url": webhook_url,
+        "ring": ring,
         "sms_received": on_received,
         "sms_delivered": on_delivered,
         "sms_sent": False,

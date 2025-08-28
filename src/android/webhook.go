@@ -53,7 +53,7 @@ type SmsFailedPayload struct {
 }
 
 // CreateWebhookHandler creates a handler for webhook endpoints
-func CreateWebhookHandler(eventType string, clientManager *ClientManager) http.HandlerFunc {
+func CreateWebhookHandler(eventType string, clientManager *ClientManager, allowlistManager *AllowlistManager) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		body, err := io.ReadAll(r.Body)
 		if err != nil {
@@ -73,9 +73,8 @@ func CreateWebhookHandler(eventType string, clientManager *ClientManager) http.H
 		// Parse the specific payload based on event type
 		payloadJSON, _ := json.Marshal(event.Payload)
 		
-		// Variable to hold phone number for filtering
+		// Log the webhook details and extract phone number
 		var phoneNumber string
-		
 		switch eventType {
 		case "received":
 			var payload SmsReceivedPayload
@@ -95,6 +94,7 @@ func CreateWebhookHandler(eventType string, clientManager *ClientManager) http.H
 				w.WriteHeader(http.StatusBadRequest)
 				return
 			}
+			phoneNumber = payload.PhoneNumber
 			log.Printf("Webhook %s: To=%s, SentAt=%s, MessageID=%s", 
 				eventType, payload.PhoneNumber, payload.SentAt, payload.MessageID)
 			
@@ -105,6 +105,7 @@ func CreateWebhookHandler(eventType string, clientManager *ClientManager) http.H
 				w.WriteHeader(http.StatusBadRequest)
 				return
 			}
+			phoneNumber = payload.PhoneNumber
 			log.Printf("Webhook %s: To=%s, DeliveredAt=%s, MessageID=%s", 
 				eventType, payload.PhoneNumber, payload.DeliveredAt, payload.MessageID)
 			
@@ -115,6 +116,7 @@ func CreateWebhookHandler(eventType string, clientManager *ClientManager) http.H
 				w.WriteHeader(http.StatusBadRequest)
 				return
 			}
+			phoneNumber = payload.PhoneNumber
 			log.Printf("Webhook %s: To=%s, FailedAt=%s, Reason='%s', MessageID=%s", 
 				eventType, payload.PhoneNumber, payload.FailedAt, payload.Reason, payload.MessageID)
 			
@@ -130,11 +132,22 @@ func CreateWebhookHandler(eventType string, clientManager *ClientManager) http.H
 		clients := clientManager.List()
 		filtered := FilterByEvent(clients, eventType)
 		
-		// For received events, also filter by phone number
-		if eventType == "received" {
-			filtered = FilterByNumberIncludes(filtered, phoneNumber)
-			filtered = FilterByNumberExcludes(filtered, phoneNumber)
+		// Check if phone number is in allowlist
+		targetRing := allowlistManager.GetRing(phoneNumber)
+		if targetRing == "" {
+			// Number not in allowlist, don't route to anyone
+			log.Printf("Phone number %s not in allowlist, ignoring webhook %s", phoneNumber, eventType)
+			return
 		}
+		
+		// Filter clients by target ring
+		var ringFiltered []*Client
+		for _, client := range filtered {
+			if client.Ring == targetRing {
+				ringFiltered = append(ringFiltered, client)
+			}
+		}
+		filtered = ringFiltered
 		
 		// Forward to filtered clients synchronously
 		forwardToClients(filtered, eventType, body)
@@ -163,45 +176,6 @@ func FilterByEvent(clients []*Client, eventType string) []*Client {
 	return filtered
 }
 
-// FilterByNumberIncludes returns clients that include the phone number (or have no include list)
-func FilterByNumberIncludes(clients []*Client, phoneNumber string) []*Client {
-	var filtered []*Client
-	for _, client := range clients {
-		var subscribed bool = len(client.IncludeReceivedFrom) == 0
-		// Check if number is in include list
-		for _, num := range client.IncludeReceivedFrom {
-			if num == phoneNumber {
-				subscribed = true
-				break
-			}
-		}
-		
-		if subscribed {
-			filtered = append(filtered, client)
-		}
-	}
-	return filtered
-}
-
-// FilterByNumberExcludes returns clients that don't exclude the phone number
-func FilterByNumberExcludes(clients []*Client, phoneNumber string) []*Client {
-	var filtered []*Client
-	for _, client := range clients {
-		var subscribed bool = true
-		// Check if number is in exclude list
-		for _, num := range client.ExcludeReceivedFrom {
-			if num == phoneNumber {
-				subscribed = false
-				break
-			}
-		}
-		
-		if subscribed {
-			filtered = append(filtered, client)
-		}
-	}
-	return filtered
-}
 
 // forwardToClients forwards the webhook to the given clients
 func forwardToClients(clients []*Client, eventType string, body []byte) {

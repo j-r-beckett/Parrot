@@ -49,7 +49,7 @@ smsgap runs two separate HTTP servers to handle different security requirements:
 
 This dual setup is necessary because SMS Gateway restricts webhook URLs to localhost (`127.0.0.1`) for security, while the API server can bind to any interface for external access.
 
-When SMS events occur (received, sent, delivered, failed), SMS Gateway sends webhooks to the webhook server. smsgap then forwards these webhooks to all registered clients via the API server based on their subscription preferences and filtering rules.
+When SMS events occur (received, sent, delivered, failed), SMS Gateway sends webhooks to the webhook server. smsgap checks if the phone number is in the allowlist, and if so, forwards the webhook to registered clients in the appropriate ring (prod/ppe). Numbers not in the allowlist are ignored for cost control.
 
 Backend servers connect to the API server for registration and SMS sending, providing a single point of contact for both sending and receiving SMS functionality.
 
@@ -59,8 +59,8 @@ Backend servers connect to the API server for registration and SMS sending, prov
 Clients register with smsgap by calling the `/register` endpoint with:
 - Unique client ID
 - Webhook URL to receive forwarded events
+- Ring assignment ("prod" or "ppe")
 - Event subscriptions (sms_received, sms_sent, sms_delivered, sms_failed)
-- Optional phone number filters (include/exclude lists)
 
 **Important**: Client registrations expire after 60 seconds of inactivity. Clients must periodically re-register (recommended every 30-45 seconds) to maintain their registration.
 
