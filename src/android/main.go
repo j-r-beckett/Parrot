@@ -136,6 +136,25 @@ func main() {
 		log.Fatalf("FATAL: Failed to create allowlist manager: %v", err)
 	}
 
+	// Create message cache for deduplication
+	messageCache := NewMessageCache()
+	
+	// Start message cache cleanup goroutine
+	stopCacheCleanup := make(chan struct{})
+	go func() {
+		ticker := time.NewTicker(5 * time.Minute)
+		defer ticker.Stop()
+		
+		for {
+			select {
+			case <-ticker.C:
+				messageCache.Cleanup(5 * time.Minute)
+			case <-stopCacheCleanup:
+				return
+			}
+		}
+	}()
+
 	// Start webhook auto-repair goroutine
 	stopAutoRepair := make(chan struct{})
 	go func() {
@@ -157,7 +176,7 @@ func main() {
 
 	// Create routers
 	apiRouter := SetupAPIRouter(version, clientManager, smsClient, allowlistManager, privateIP)
-	webhookRouter := SetupWebhookRouter(clientManager, allowlistManager)
+	webhookRouter := SetupWebhookRouter(clientManager, allowlistManager, messageCache)
 
 	// Start API server on host:port
 	log.Printf("Starting API server on %s", serverAddr)
@@ -197,6 +216,9 @@ func main() {
 
 	// Stop auto-repair
 	close(stopAutoRepair)
+	
+	// Stop message cache cleanup
+	close(stopCacheCleanup)
 
 	// Stop client manager pruning
 	clientManager.Stop()

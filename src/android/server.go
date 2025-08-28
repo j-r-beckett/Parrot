@@ -240,16 +240,16 @@ func SetupAPIRouter(version string, clientManager *ClientManager, smsClient *SMS
 }
 
 // SetupWebhookRouter creates the webhook router for SMS Gateway callbacks
-func SetupWebhookRouter(clientManager *ClientManager, allowlistManager *AllowlistManager) *chi.Mux {
+func SetupWebhookRouter(clientManager *ClientManager, allowlistManager *AllowlistManager, messageCache *MessageCache) *chi.Mux {
 	r := chi.NewRouter()
 	r.Use(middleware.Logger)
 	r.Use(middleware.Recoverer)
 
 	// Webhook endpoints only
-	r.Post("/webhook/received", CreateWebhookHandler("received", clientManager, allowlistManager))
-	r.Post("/webhook/sent", CreateWebhookHandler("sent", clientManager, allowlistManager))
-	r.Post("/webhook/delivered", CreateWebhookHandler("delivered", clientManager, allowlistManager))
-	r.Post("/webhook/failed", CreateWebhookHandler("failed", clientManager, allowlistManager))
+	r.Post("/webhook/received", CreateWebhookHandler("received", clientManager, allowlistManager, messageCache))
+	r.Post("/webhook/sent", CreateWebhookHandler("sent", clientManager, allowlistManager, messageCache))
+	r.Post("/webhook/delivered", CreateWebhookHandler("delivered", clientManager, allowlistManager, messageCache))
+	r.Post("/webhook/failed", CreateWebhookHandler("failed", clientManager, allowlistManager, messageCache))
 
 	return r
 }

@@ -52,8 +52,47 @@ type SmsFailedPayload struct {
 	Reason   string `json:"reason"`
 }
 
+// MessageCache provides deduplication for webhook messages
+type MessageCache struct {
+	seen map[string]time.Time // MessageID -> first seen time
+	mu   sync.RWMutex
+}
+
+// NewMessageCache creates a new message cache
+func NewMessageCache() *MessageCache {
+	return &MessageCache{
+		seen: make(map[string]time.Time),
+	}
+}
+
+// IsSeenAndMark checks if a message has been seen before, and marks it as seen
+func (mc *MessageCache) IsSeenAndMark(messageID string) bool {
+	mc.mu.Lock()
+	defer mc.mu.Unlock()
+	
+	if _, exists := mc.seen[messageID]; exists {
+		return true
+	}
+	
+	mc.seen[messageID] = time.Now()
+	return false
+}
+
+// Cleanup removes entries older than the given duration
+func (mc *MessageCache) Cleanup(ttl time.Duration) {
+	mc.mu.Lock()
+	defer mc.mu.Unlock()
+	
+	cutoff := time.Now().Add(-ttl)
+	for messageID, timestamp := range mc.seen {
+		if timestamp.Before(cutoff) {
+			delete(mc.seen, messageID)
+		}
+	}
+}
+
 // CreateWebhookHandler creates a handler for webhook endpoints
-func CreateWebhookHandler(eventType string, clientManager *ClientManager, allowlistManager *AllowlistManager) http.HandlerFunc {
+func CreateWebhookHandler(eventType string, clientManager *ClientManager, allowlistManager *AllowlistManager, messageCache *MessageCache) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		body, err := io.ReadAll(r.Body)
 		if err != nil {
@@ -73,7 +112,8 @@ func CreateWebhookHandler(eventType string, clientManager *ClientManager, allowl
 		// Parse the specific payload based on event type
 		payloadJSON, _ := json.Marshal(event.Payload)
 		
-		// Log the webhook details and extract phone number
+		// Extract MessageID for deduplication (all SMS events have MessageID)
+		var messageID string
 		var phoneNumber string
 		switch eventType {
 		case "received":
@@ -83,6 +123,7 @@ func CreateWebhookHandler(eventType string, clientManager *ClientManager, allowl
 				w.WriteHeader(http.StatusBadRequest)
 				return
 			}
+			messageID = payload.MessageID
 			phoneNumber = payload.PhoneNumber
 			log.Printf("Webhook %s: From=%s, Message='%s', ReceivedAt=%s, MessageID=%s", 
 				eventType, payload.PhoneNumber, payload.Message, payload.ReceivedAt, payload.MessageID)
@@ -94,6 +135,7 @@ func CreateWebhookHandler(eventType string, clientManager *ClientManager, allowl
 				w.WriteHeader(http.StatusBadRequest)
 				return
 			}
+			messageID = payload.MessageID
 			phoneNumber = payload.PhoneNumber
 			log.Printf("Webhook %s: To=%s, SentAt=%s, MessageID=%s", 
 				eventType, payload.PhoneNumber, payload.SentAt, payload.MessageID)
@@ -105,6 +147,7 @@ func CreateWebhookHandler(eventType string, clientManager *ClientManager, allowl
 				w.WriteHeader(http.StatusBadRequest)
 				return
 			}
+			messageID = payload.MessageID
 			phoneNumber = payload.PhoneNumber
 			log.Printf("Webhook %s: To=%s, DeliveredAt=%s, MessageID=%s", 
 				eventType, payload.PhoneNumber, payload.DeliveredAt, payload.MessageID)
@@ -116,12 +159,26 @@ func CreateWebhookHandler(eventType string, clientManager *ClientManager, allowl
 				w.WriteHeader(http.StatusBadRequest)
 				return
 			}
+			messageID = payload.MessageID
 			phoneNumber = payload.PhoneNumber
 			log.Printf("Webhook %s: To=%s, FailedAt=%s, Reason='%s', MessageID=%s", 
 				eventType, payload.PhoneNumber, payload.FailedAt, payload.Reason, payload.MessageID)
 			
 		default:
 			log.Printf("Webhook %s: Unknown event type - raw payload: %s", eventType, string(payloadJSON))
+		}
+		
+		// Check for duplicate messages (SMS Gateway bug workaround)
+		// Use eventType-messageID as key since same messageID is used across sent/delivered/failed events
+		if messageID != "" {
+			dedupKey := eventType + "-" + messageID
+			if messageCache.IsSeenAndMark(dedupKey) {
+				log.Printf("Webhook %s: DUPLICATE detected for MessageID=%s, ignoring", eventType, messageID)
+				// Return 200 OK immediately to SMS Gateway
+				w.WriteHeader(http.StatusOK)
+				w.Write([]byte("OK"))
+				return
+			}
 		}
 		
 		// Return 200 OK immediately to SMS Gateway
