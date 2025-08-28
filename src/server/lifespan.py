@@ -45,7 +45,7 @@ async def lifespan(app: Litestar) -> AsyncGenerator[None, None]:
     registration_task = asyncio.create_task(
         register_and_maintain(
             smsgap_client,
-            client_id="clanker-server",
+            client_id=f"clanker-{settings.ring}",
             webhook_url=f"{settings.webhook.base_url}/webhook/smsgap",
             logger=app.logger,
             on_received=True,  # We want to receive SMS

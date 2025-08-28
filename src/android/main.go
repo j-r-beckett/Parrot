@@ -41,23 +41,25 @@ func getLocalIP() (string, error) {
 
 func main() {
 	log.Printf("[%s] Starting smsgap v%s", time.Now().Format("2006-01-02 15:04:05"), version)
-	log.Printf("DEBUG: os.Args = %v", os.Args)
-	
+
 	// Parse command line arguments
-	var passwordArg, host, port string
+	var passwordArg, port, privateIP string
 	flag.StringVar(&passwordArg, "password", "", "SMS Gateway password (optional, uses password file if not specified)")
-	flag.StringVar(&host, "host", "", "Host IP address to bind to (required)")
 	flag.StringVar(&port, "port", "", "Port to bind to (required)")
+	flag.StringVar(&privateIP, "private-ip", "", "Private IP address to restrict API access to (required)")
 	flag.Parse()
 	log.Printf("DEBUG: After parse, password flag = %q", passwordArg)
 
 	// Validate required arguments
-	if host == "" {
-		log.Fatalf("FATAL: -host argument is required")
-	}
 	if port == "" {
 		log.Fatalf("FATAL: -port argument is required")
 	}
+	if privateIP == "" {
+		log.Fatalf("FATAL: -private-ip argument is required")
+	}
+
+	// Always bind to all interfaces
+	host := "0.0.0.0"
 
 	// Get SMS Gateway password from command line or file
 	var smsGatewayPass string
@@ -73,7 +75,7 @@ func main() {
 		smsGatewayPass = strings.TrimSpace(string(passwordBytes))
 		log.Printf("Using password from file %s", passwordFile)
 	}
-	
+
 	// Check if API server port is available
 	serverAddr := net.JoinHostPort(host, port)
 	listener, err := net.Listen("tcp", serverAddr)
@@ -81,7 +83,7 @@ func main() {
 		log.Fatalf("FATAL: Address %s is not available: %v", serverAddr, err)
 	}
 	listener.Close()
-	
+
 	// Find an available port for webhook server
 	webhookListener, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {
@@ -90,14 +92,14 @@ func main() {
 	webhookPort := fmt.Sprintf("%d", webhookListener.Addr().(*net.TCPAddr).Port)
 	webhookListener.Close()
 	log.Printf("Using port %s for webhook server", webhookPort)
-	
+
 	// Get local IP to connect to SMS Gateway
 	localIP, err := getLocalIP()
 	if err != nil {
 		log.Fatalf("FATAL: Failed to get local IP: %v", err)
 	}
 	log.Printf("Detected local IP: %s", localIP)
-	
+
 	// Wait for SMS Gateway to be available
 	log.Printf("Checking SMS Gateway health on port %s", smsGatewayPort)
 	smsGatewayURL := fmt.Sprintf("http://%s:%s", localIP, smsGatewayPort)
@@ -108,15 +110,15 @@ func main() {
 			log.Printf("SMS Gateway is healthy")
 			break
 		}
-		
+
 		if time.Since(startTime) > healthCheckRetry {
 			log.Fatalf("FATAL: SMS Gateway not available after %v: %v", healthCheckRetry, err)
 		}
-		
+
 		log.Printf("SMS Gateway not ready: %v, retrying...", err)
 		time.Sleep(1 * time.Second)
 	}
-	
+
 	// Setup webhooks with SMS Gateway
 	smsClient := NewSMSGatewayClient(smsGatewayURL, smsGatewayUser, smsGatewayPass)
 	if err := SetupWebhooks(smsClient, webhookPort); err != nil {
@@ -126,13 +128,13 @@ func main() {
 	// Create client manager and start pruning
 	clientManager := NewClientManager()
 	clientManager.StartPruning()
-	
+
 	// Start webhook auto-repair goroutine
 	stopAutoRepair := make(chan struct{})
 	go func() {
 		ticker := time.NewTicker(30 * time.Second)
 		defer ticker.Stop()
-		
+
 		for {
 			select {
 			case <-ticker.C:
@@ -145,9 +147,9 @@ func main() {
 			}
 		}
 	}()
-	
+
 	// Create routers
-	apiRouter := SetupAPIRouter(version, clientManager, smsClient)
+	apiRouter := SetupAPIRouter(version, clientManager, smsClient, privateIP)
 	webhookRouter := SetupWebhookRouter(clientManager)
 
 	// Start API server on host:port
@@ -168,46 +170,46 @@ func main() {
 	// Setup signal handling for graceful shutdown
 	sigChan := make(chan os.Signal, 1)
 	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
-	
+
 	// Start both servers in goroutines
 	go func() {
 		if err := apiServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 			log.Fatalf("FATAL: Failed to start API server: %v", err)
 		}
 	}()
-	
+
 	go func() {
 		if err := webhookServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 			log.Fatalf("FATAL: Failed to start webhook server: %v", err)
 		}
 	}()
-	
+
 	// Wait for shutdown signal
 	<-sigChan
 	log.Printf("Shutting down gracefully...")
-	
+
 	// Stop auto-repair
 	close(stopAutoRepair)
-	
+
 	// Stop client manager pruning
 	clientManager.Stop()
-	
+
 	// Shutdown both HTTP servers (waits for active requests to complete)
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
-	
+
 	if err := apiServer.Shutdown(ctx); err != nil {
 		log.Printf("ERROR: API server shutdown failed: %v", err)
 	}
-	
+
 	if err := webhookServer.Shutdown(ctx); err != nil {
 		log.Printf("ERROR: Webhook server shutdown failed: %v", err)
 	}
-	
+
 	// Clean up webhooks from SMS Gateway
 	if err := CleanupWebhooks(smsClient); err != nil {
 		log.Printf("ERROR: Failed to cleanup webhooks: %v", err)
 	}
-	
+
 	log.Printf("Server stopped")
 }

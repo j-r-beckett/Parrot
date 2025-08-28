@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"net"
 	"net/http"
 	"regexp"
 	"time"
@@ -13,6 +14,25 @@ import (
 )
 
 var phoneNumberRegex = regexp.MustCompile(`^\+?\d{10,14}$`)
+
+// PrivateIPOnlyMiddleware restricts access to requests sent to a specific private IP
+func PrivateIPOnlyMiddleware(privateIP string) func(http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			// Get the local address the request was received on
+			if addr := r.Context().Value(http.LocalAddrContextKey); addr != nil {
+				if tcpAddr, ok := addr.(*net.TCPAddr); ok {
+					if tcpAddr.IP.String() != privateIP {
+						log.Printf("Rejecting request from %s to %s (expected %s)", r.RemoteAddr, tcpAddr.IP.String(), privateIP)
+						http.Error(w, "Forbidden", http.StatusForbidden)
+						return
+					}
+				}
+			}
+			next.ServeHTTP(w, r)
+		})
+	}
+}
 
 // RegisterRequest represents the client registration request
 type RegisterRequest struct {
@@ -27,29 +47,30 @@ type RegisterRequest struct {
 }
 
 // SetupAPIRouter creates the API router for external client access
-func SetupAPIRouter(version string, clientManager *ClientManager, smsClient *SMSGatewayClient) *chi.Mux {
+func SetupAPIRouter(version string, clientManager *ClientManager, smsClient *SMSGatewayClient, privateIP string) *chi.Mux {
 	r := chi.NewRouter()
 	r.Use(middleware.Logger)
 	r.Use(middleware.Recoverer)
+	r.Use(PrivateIPOnlyMiddleware(privateIP))
 
 	// Health endpoint
 	r.Get("/health", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
-		
+
 		// Check SMS Gateway health
 		err := smsClient.CheckHealth()
-		
+
 		if err == nil {
 			w.WriteHeader(http.StatusOK)
-			fmt.Fprintf(w, `{"status":"healthy","version":"%s","timestamp":"%s","sms_gateway":"healthy"}`, 
+			fmt.Fprintf(w, `{"status":"healthy","version":"%s","timestamp":"%s","sms_gateway":"healthy"}`,
 				version, time.Now().Format(time.RFC3339))
 		} else {
 			w.WriteHeader(http.StatusServiceUnavailable)
-			fmt.Fprintf(w, `{"status":"unhealthy","version":"%s","timestamp":"%s","sms_gateway":"unhealthy","error":"%s"}`, 
+			fmt.Fprintf(w, `{"status":"unhealthy","version":"%s","timestamp":"%s","sms_gateway":"unhealthy","error":"%s"}`,
 				version, time.Now().Format(time.RFC3339), err.Error())
 		}
 	})
-	
+
 	// Client registration endpoint
 	r.Post("/register", func(w http.ResponseWriter, r *http.Request) {
 		var req RegisterRequest
@@ -57,25 +78,25 @@ func SetupAPIRouter(version string, clientManager *ClientManager, smsClient *SMS
 			http.Error(w, "Invalid JSON", http.StatusBadRequest)
 			return
 		}
-		
+
 		// Validate ID length
 		if len(req.ID) == 0 || len(req.ID) > 128 {
 			http.Error(w, "ID must be between 1 and 128 characters", http.StatusBadRequest)
 			return
 		}
-		
+
 		// Validate webhook URL
 		if req.WebhookURL == "" {
 			http.Error(w, "webhook_url is required", http.StatusBadRequest)
 			return
 		}
-		
+
 		// Validate that both include and exclude lists are not specified
 		if len(req.IncludeReceivedFrom) > 0 && len(req.ExcludeReceivedFrom) > 0 {
 			http.Error(w, "Cannot specify both include_received_from and exclude_received_from", http.StatusBadRequest)
 			return
 		}
-		
+
 		// Validate phone numbers if provided
 		for _, num := range req.IncludeReceivedFrom {
 			if !phoneNumberRegex.MatchString(num) {
@@ -89,7 +110,7 @@ func SetupAPIRouter(version string, clientManager *ClientManager, smsClient *SMS
 				return
 			}
 		}
-		
+
 		// Register the client
 		client := &Client{
 			ID:                  req.ID,
@@ -101,23 +122,25 @@ func SetupAPIRouter(version string, clientManager *ClientManager, smsClient *SMS
 			IncludeReceivedFrom: req.IncludeReceivedFrom,
 			ExcludeReceivedFrom: req.ExcludeReceivedFrom,
 		}
-		
+
 		clientManager.Register(req.ID, client)
-		
+
+		log.Printf("Registering client %s", client.WebhookURL)
+
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
 		json.NewEncoder(w).Encode(map[string]string{"status": "registered", "id": req.ID})
 	})
-	
+
 	// List clients endpoint
 	r.Get("/clients", func(w http.ResponseWriter, r *http.Request) {
 		clients := clientManager.List()
-		
+
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
 		json.NewEncoder(w).Encode(clients)
 	})
-	
+
 	// Send SMS endpoint (proxy to SMS Gateway)
 	r.Post("/send", func(w http.ResponseWriter, r *http.Request) {
 		var req struct {
@@ -125,12 +148,12 @@ func SetupAPIRouter(version string, clientManager *ClientManager, smsClient *SMS
 			Message      string   `json:"message"`
 			SimNumber    *int     `json:"sim_number,omitempty"`
 		}
-		
+
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 			http.Error(w, "Invalid JSON", http.StatusBadRequest)
 			return
 		}
-		
+
 		// Validate required fields
 		if len(req.PhoneNumbers) == 0 {
 			http.Error(w, "phone_numbers is required", http.StatusBadRequest)
@@ -140,7 +163,7 @@ func SetupAPIRouter(version string, clientManager *ClientManager, smsClient *SMS
 			http.Error(w, "message is required", http.StatusBadRequest)
 			return
 		}
-		
+
 		// Send SMS via SMS Gateway
 		result, err := smsClient.SendSMS(req.PhoneNumbers, req.Message, req.SimNumber)
 		if err != nil {
@@ -148,12 +171,12 @@ func SetupAPIRouter(version string, clientManager *ClientManager, smsClient *SMS
 			http.Error(w, fmt.Sprintf("Failed to send SMS: %v", err), http.StatusInternalServerError)
 			return
 		}
-		
+
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusAccepted)
 		json.NewEncoder(w).Encode(result)
 	})
-	
+
 	return r
 }
 
@@ -179,14 +202,14 @@ func CleanupWebhooks(client *SMSGatewayClient) error {
 	if err != nil {
 		return fmt.Errorf("failed to get webhooks: %v", err)
 	}
-	
+
 	for _, webhook := range webhooks {
 		log.Printf("Deleting webhook %s for event %s", webhook.ID, webhook.Event)
 		if err := client.DeleteWebhook(webhook.ID); err != nil {
 			log.Printf("ERROR: Failed to delete webhook %s: %v", webhook.ID, err)
 		}
 	}
-	
+
 	log.Printf("Webhook cleanup complete")
 	return nil
 }
@@ -199,7 +222,7 @@ func SetupWebhooks(client *SMSGatewayClient, webhookPort string) error {
 	if err != nil {
 		return fmt.Errorf("failed to get webhooks: %v", err)
 	}
-	
+
 	// Delete all existing webhooks
 	for _, webhook := range webhooks {
 		log.Printf("Deleting webhook %s for event %s", webhook.ID, webhook.Event)
@@ -207,7 +230,7 @@ func SetupWebhooks(client *SMSGatewayClient, webhookPort string) error {
 			return fmt.Errorf("failed to delete webhook %s: %v", webhook.ID, err)
 		}
 	}
-	
+
 	// Register all webhook types
 	webhookEvents := []string{"sms:received", "sms:sent", "sms:delivered", "sms:failed"}
 	for _, event := range webhookEvents {
@@ -219,7 +242,7 @@ func SetupWebhooks(client *SMSGatewayClient, webhookPort string) error {
 			return fmt.Errorf("failed to register webhook for %s: %v", event, err)
 		}
 	}
-	
+
 	log.Printf("Webhook registration complete")
 	return nil
 }
@@ -227,13 +250,13 @@ func SetupWebhooks(client *SMSGatewayClient, webhookPort string) error {
 // RepairWebhooks checks if our webhooks are registered and repairs them if needed
 func RepairWebhooks(client *SMSGatewayClient, webhookPort string) error {
 	log.Printf("[WebhookAutoRepair] Checking webhook registrations")
-	
+
 	// Get current webhooks
 	webhooks, err := client.GetWebhooks()
 	if err != nil {
 		return fmt.Errorf("failed to get webhooks: %v", err)
 	}
-	
+
 	// Build a map of what we have
 	existingWebhooks := make(map[string]bool)
 	for _, webhook := range webhooks {
@@ -244,14 +267,14 @@ func RepairWebhooks(client *SMSGatewayClient, webhookPort string) error {
 			existingWebhooks[webhook.Event] = true
 		} else {
 			// Wrong URL, delete it
-			log.Printf("[WebhookAutoRepair] Found webhook with wrong URL for %s. Expected %s, got %s. Deleting...", 
+			log.Printf("[WebhookAutoRepair] Found webhook with wrong URL for %s. Expected %s, got %s. Deleting...",
 				webhook.Event, expectedURL, webhook.URL)
 			if err := client.DeleteWebhook(webhook.ID); err != nil {
 				log.Printf("[WebhookAutoRepair] ERROR: Failed to delete webhook %s: %v", webhook.ID, err)
 			}
 		}
 	}
-	
+
 	// Check and repair each event type
 	webhookEvents := []string{"sms:received", "sms:sent", "sms:delivered", "sms:failed"}
 	repaired := 0
@@ -268,12 +291,12 @@ func RepairWebhooks(client *SMSGatewayClient, webhookPort string) error {
 			}
 		}
 	}
-	
+
 	if repaired > 0 {
 		log.Printf("[WebhookAutoRepair] Repaired %d webhooks", repaired)
 	} else {
 		log.Printf("[WebhookAutoRepair] All webhooks are correctly registered")
 	}
-	
+
 	return nil
 }

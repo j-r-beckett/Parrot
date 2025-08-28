@@ -39,7 +39,7 @@ func NewClientManager() *ClientManager {
 func (cm *ClientManager) Register(id string, client *Client) {
 	cm.mu.Lock()
 	defer cm.mu.Unlock()
-	
+
 	client.LastSeen = time.Now()
 	if existing, exists := cm.clients[id]; exists {
 		// Preserve registration time on updates
@@ -47,7 +47,7 @@ func (cm *ClientManager) Register(id string, client *Client) {
 	} else {
 		client.RegisteredAt = time.Now()
 	}
-	
+
 	cm.clients[id] = client
 }
 
@@ -55,7 +55,7 @@ func (cm *ClientManager) Register(id string, client *Client) {
 func (cm *ClientManager) Get(id string) (*Client, bool) {
 	cm.mu.Lock()
 	defer cm.mu.Unlock()
-	
+
 	client, exists := cm.clients[id]
 	return client, exists
 }
@@ -64,7 +64,7 @@ func (cm *ClientManager) Get(id string) (*Client, bool) {
 func (cm *ClientManager) List() []*Client {
 	cm.mu.Lock()
 	defer cm.mu.Unlock()
-	
+
 	// Return a copy to avoid race conditions
 	result := make([]*Client, 0, len(cm.clients))
 	for _, client := range cm.clients {
@@ -79,10 +79,10 @@ func (cm *ClientManager) StartPruning() {
 	cm.wg.Add(1)
 	go func() {
 		defer cm.wg.Done()
-		
+
 		ticker := time.NewTicker(10 * time.Second)
 		defer ticker.Stop()
-		
+
 		for {
 			select {
 			case <-ticker.C:
@@ -98,7 +98,7 @@ func (cm *ClientManager) StartPruning() {
 func (cm *ClientManager) prune() {
 	cm.mu.Lock()
 	defer cm.mu.Unlock()
-	
+
 	cutoff := time.Now().Add(-60 * time.Second)
 	for id, client := range cm.clients {
 		if client.LastSeen.Before(cutoff) {

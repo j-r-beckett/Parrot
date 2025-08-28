@@ -57,5 +57,5 @@ fi
 
 # Start smsgap
 echo "[$(date)] Starting smsgap service" >> $LOG
-cd "$SCRIPT_DIR" && setsid ./smsgap -host "${SETTLER_IP}" -port "${SMSGAP_PORT}" >> smsgap.log 2>&1 < /dev/null &
+cd "$SCRIPT_DIR" && setsid ./smsgap -port "${SMSGAP_PORT}" -private-ip "${PRIVATE_IP}" >> smsgap.log 2>&1 < /dev/null &
 echo "[$(date)] smsgap started, logging to $SCRIPT_DIR/smsgap.log" >> $LOG

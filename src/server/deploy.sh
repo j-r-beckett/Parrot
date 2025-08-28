@@ -106,6 +106,8 @@ elif [ "$RING" = "prod" ]; then
 fi
 echo "Port: $CLANKER_SERVER_HOST_PORT"
 
+export RING
+
 echo "Generating docker-compose configuration..."
 COMPOSE_CONTENT=$(envsubst < compose.template.yml)
 

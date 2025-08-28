@@ -9,5 +9,6 @@ services:
       - HOST_URL=http://${CLANKER_SERVER_HOST_IP}:${CLANKER_SERVER_HOST_PORT}
       - SMSGAP_URL=http://${SETTLER_IP}:${SMSGAP_PORT}
       - CONVERSATIONS_DB=/data/conversations.db
+      - RING=${RING}
     volumes:
       - ./data:/data
