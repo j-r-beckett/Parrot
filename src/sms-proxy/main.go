@@ -138,13 +138,13 @@ func main() {
 
 	// Create message cache for deduplication
 	messageCache := NewMessageCache()
-	
+
 	// Start message cache cleanup goroutine
 	stopCacheCleanup := make(chan struct{})
 	go func() {
 		ticker := time.NewTicker(5 * time.Minute)
 		defer ticker.Stop()
-		
+
 		for {
 			select {
 			case <-ticker.C:
@@ -216,7 +216,7 @@ func main() {
 
 	// Stop auto-repair
 	close(stopAutoRepair)
-	
+
 	// Stop message cache cleanup
 	close(stopCacheCleanup)
 

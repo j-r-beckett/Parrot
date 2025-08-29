@@ -21,9 +21,9 @@ type WebhookEvent struct {
 
 // SmsEventPayload is the base payload for SMS-related events
 type SmsEventPayload struct {
-	MessageID   string  `json:"messageId"`
-	PhoneNumber string  `json:"phoneNumber"`
-	SimNumber   *int    `json:"simNumber"`
+	MessageID   string `json:"messageId"`
+	PhoneNumber string `json:"phoneNumber"`
+	SimNumber   *int   `json:"simNumber"`
 }
 
 // SmsReceivedPayload for sms:received events
@@ -69,11 +69,11 @@ func NewMessageCache() *MessageCache {
 func (mc *MessageCache) IsSeenAndMark(messageID string) bool {
 	mc.mu.Lock()
 	defer mc.mu.Unlock()
-	
+
 	if _, exists := mc.seen[messageID]; exists {
 		return true
 	}
-	
+
 	mc.seen[messageID] = time.Now()
 	return false
 }
@@ -82,7 +82,7 @@ func (mc *MessageCache) IsSeenAndMark(messageID string) bool {
 func (mc *MessageCache) Cleanup(ttl time.Duration) {
 	mc.mu.Lock()
 	defer mc.mu.Unlock()
-	
+
 	cutoff := time.Now().Add(-ttl)
 	for messageID, timestamp := range mc.seen {
 		if timestamp.Before(cutoff) {
@@ -100,7 +100,7 @@ func CreateWebhookHandler(eventType string, clientManager *ClientManager, allowl
 			w.WriteHeader(http.StatusBadRequest)
 			return
 		}
-		
+
 		// Parse the webhook event
 		var event WebhookEvent
 		if err := json.Unmarshal(body, &event); err != nil {
@@ -108,10 +108,10 @@ func CreateWebhookHandler(eventType string, clientManager *ClientManager, allowl
 			w.WriteHeader(http.StatusBadRequest)
 			return
 		}
-		
+
 		// Parse the specific payload based on event type
 		payloadJSON, _ := json.Marshal(event.Payload)
-		
+
 		// Extract MessageID for deduplication (all SMS events have MessageID)
 		var messageID string
 		var phoneNumber string
@@ -125,9 +125,9 @@ func CreateWebhookHandler(eventType string, clientManager *ClientManager, allowl
 			}
 			messageID = payload.MessageID
 			phoneNumber = payload.PhoneNumber
-			log.Printf("Webhook %s: From=%s, Message='%s', ReceivedAt=%s, MessageID=%s", 
+			log.Printf("Webhook %s: From=%s, Message='%s', ReceivedAt=%s, MessageID=%s",
 				eventType, payload.PhoneNumber, payload.Message, payload.ReceivedAt, payload.MessageID)
-			
+
 		case "sent":
 			var payload SmsSentPayload
 			if err := json.Unmarshal(payloadJSON, &payload); err != nil {
@@ -137,9 +137,9 @@ func CreateWebhookHandler(eventType string, clientManager *ClientManager, allowl
 			}
 			messageID = payload.MessageID
 			phoneNumber = payload.PhoneNumber
-			log.Printf("Webhook %s: To=%s, SentAt=%s, MessageID=%s", 
+			log.Printf("Webhook %s: To=%s, SentAt=%s, MessageID=%s",
 				eventType, payload.PhoneNumber, payload.SentAt, payload.MessageID)
-			
+
 		case "delivered":
 			var payload SmsDeliveredPayload
 			if err := json.Unmarshal(payloadJSON, &payload); err != nil {
@@ -149,9 +149,9 @@ func CreateWebhookHandler(eventType string, clientManager *ClientManager, allowl
 			}
 			messageID = payload.MessageID
 			phoneNumber = payload.PhoneNumber
-			log.Printf("Webhook %s: To=%s, DeliveredAt=%s, MessageID=%s", 
+			log.Printf("Webhook %s: To=%s, DeliveredAt=%s, MessageID=%s",
 				eventType, payload.PhoneNumber, payload.DeliveredAt, payload.MessageID)
-			
+
 		case "failed":
 			var payload SmsFailedPayload
 			if err := json.Unmarshal(payloadJSON, &payload); err != nil {
@@ -161,13 +161,13 @@ func CreateWebhookHandler(eventType string, clientManager *ClientManager, allowl
 			}
 			messageID = payload.MessageID
 			phoneNumber = payload.PhoneNumber
-			log.Printf("Webhook %s: To=%s, FailedAt=%s, Reason='%s', MessageID=%s", 
+			log.Printf("Webhook %s: To=%s, FailedAt=%s, Reason='%s', MessageID=%s",
 				eventType, payload.PhoneNumber, payload.FailedAt, payload.Reason, payload.MessageID)
-			
+
 		default:
 			log.Printf("Webhook %s: Unknown event type - raw payload: %s", eventType, string(payloadJSON))
 		}
-		
+
 		// Check for duplicate messages (SMS Gateway bug workaround)
 		// Use eventType-messageID as key since same messageID is used across sent/delivered/failed events
 		if messageID != "" {
@@ -180,15 +180,15 @@ func CreateWebhookHandler(eventType string, clientManager *ClientManager, allowl
 				return
 			}
 		}
-		
+
 		// Return 200 OK immediately to SMS Gateway
 		w.WriteHeader(http.StatusOK)
 		w.Write([]byte("OK"))
-		
+
 		// Get all clients and filter by event subscription
 		clients := clientManager.List()
 		filtered := FilterByEvent(clients, eventType)
-		
+
 		// Check if phone number is in allowlist
 		targetRing := allowlistManager.GetRing(phoneNumber)
 		if targetRing == "" {
@@ -196,7 +196,7 @@ func CreateWebhookHandler(eventType string, clientManager *ClientManager, allowl
 			log.Printf("Phone number %s not in allowlist, ignoring webhook %s", phoneNumber, eventType)
 			return
 		}
-		
+
 		// Filter clients by target ring
 		var ringFiltered []*Client
 		for _, client := range filtered {
@@ -205,7 +205,7 @@ func CreateWebhookHandler(eventType string, clientManager *ClientManager, allowl
 			}
 		}
 		filtered = ringFiltered
-		
+
 		// Forward to filtered clients synchronously
 		forwardToClients(filtered, eventType, body)
 	}
@@ -233,38 +233,37 @@ func FilterByEvent(clients []*Client, eventType string) []*Client {
 	return filtered
 }
 
-
 // forwardToClients forwards the webhook to the given clients
 func forwardToClients(clients []*Client, eventType string, body []byte) {
 	var wg sync.WaitGroup
-	
+
 	for _, client := range clients {
 		wg.Add(1)
 		go func(client *Client) {
 			defer wg.Done()
-			
+
 			// Append event type to webhook URL
 			webhookURL := client.WebhookURL + "/" + eventType
-			
+
 			// Try forwarding with up to 3 attempts
 			maxAttempts := 3
 			for attempt := 1; attempt <= maxAttempts; attempt++ {
 				resp, err := http.Post(webhookURL, "application/json", bytes.NewBuffer(body))
 				if err != nil {
-					log.Printf("ERROR: Failed to forward to client %s at %s (attempt %d/%d): %v", 
+					log.Printf("ERROR: Failed to forward to client %s at %s (attempt %d/%d): %v",
 						client.ID, webhookURL, attempt, maxAttempts, err)
 					if attempt < maxAttempts {
 						time.Sleep(time.Second)
 					}
 				} else {
 					defer resp.Body.Close()
-					
+
 					if resp.StatusCode >= 200 && resp.StatusCode < 300 {
-						log.Printf("Forwarded %s to client %s at %s (status %d, attempt %d/%d)", 
+						log.Printf("Forwarded %s to client %s at %s (status %d, attempt %d/%d)",
 							eventType, client.ID, webhookURL, resp.StatusCode, attempt, maxAttempts)
 						break // Success, stop retrying
 					} else {
-						log.Printf("ERROR: Client %s returned status %d from %s (attempt %d/%d)", 
+						log.Printf("ERROR: Client %s returned status %d from %s (attempt %d/%d)",
 							client.ID, resp.StatusCode, webhookURL, attempt, maxAttempts)
 						if attempt < maxAttempts {
 							time.Sleep(time.Second)
@@ -274,7 +273,7 @@ func forwardToClients(clients []*Client, eventType string, body []byte) {
 			}
 		}(client)
 	}
-	
+
 	// Wait for all forwards to complete
 	wg.Wait()
 }

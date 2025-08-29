@@ -11,10 +11,10 @@ import (
 
 // AllowlistManager manages the collection of allowed phone numbers and their ring assignments
 type AllowlistManager struct {
-	db       *sql.DB
-	numbers  map[string]string // phone_number -> ring
-	mu       sync.RWMutex
-	dbPath   string
+	db      *sql.DB
+	numbers map[string]string // phone_number -> ring
+	mu      sync.RWMutex
+	dbPath  string
 }
 
 // NewAllowlistManager creates a new allowlist number manager

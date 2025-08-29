@@ -49,17 +49,17 @@ func (c *SMSGatewayClient) doRequest(method, path string, body interface{}) (*ht
 		}
 		reqBody = bytes.NewBuffer(jsonBody)
 	}
-	
+
 	req, err := http.NewRequest(method, c.baseURL+path, reqBody)
 	if err != nil {
 		return nil, err
 	}
-	
+
 	req.SetBasicAuth(c.username, c.password)
 	if body != nil {
 		req.Header.Set("Content-Type", "application/json")
 	}
-	
+
 	return c.client.Do(req)
 }
 
@@ -70,17 +70,17 @@ func (c *SMSGatewayClient) GetWebhooks() ([]Webhook, error) {
 		return nil, err
 	}
 	defer resp.Body.Close()
-	
+
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)
 		return nil, fmt.Errorf("failed to get webhooks: status %d, body: %s", resp.StatusCode, body)
 	}
-	
+
 	var webhooks []Webhook
 	if err := json.NewDecoder(resp.Body).Decode(&webhooks); err != nil {
 		return nil, err
 	}
-	
+
 	return webhooks, nil
 }
 
@@ -91,12 +91,12 @@ func (c *SMSGatewayClient) DeleteWebhook(id string) error {
 		return err
 	}
 	defer resp.Body.Close()
-	
+
 	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusNoContent {
 		body, _ := io.ReadAll(resp.Body)
 		return fmt.Errorf("failed to delete webhook: status %d, body: %s", resp.StatusCode, body)
 	}
-	
+
 	return nil
 }
 
@@ -106,18 +106,18 @@ func (c *SMSGatewayClient) RegisterWebhook(event, callbackURL string) error {
 		URL:   callbackURL,
 		Event: event,
 	}
-	
+
 	resp, err := c.doRequest("POST", "/webhooks", webhook)
 	if err != nil {
 		return err
 	}
 	defer resp.Body.Close()
-	
+
 	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusCreated {
 		body, _ := io.ReadAll(resp.Body)
 		return fmt.Errorf("failed to register webhook: status %d, body: %s", resp.StatusCode, body)
 	}
-	
+
 	return nil
 }
 
@@ -130,27 +130,27 @@ func (c *SMSGatewayClient) SendSMS(phoneNumbers []string, message string, simNum
 	if simNumber != nil {
 		payload["simNumber"] = *simNumber
 	}
-	
+
 	resp, err := c.doRequest("POST", "/messages", payload)
 	if err != nil {
 		return nil, err
 	}
 	defer resp.Body.Close()
-	
+
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return nil, err
 	}
-	
+
 	if resp.StatusCode != http.StatusAccepted {
 		return nil, fmt.Errorf("failed to send SMS: status %d, body: %s", resp.StatusCode, body)
 	}
-	
+
 	var result map[string]interface{}
 	if err := json.Unmarshal(body, &result); err != nil {
 		return nil, err
 	}
-	
+
 	return result, nil
 }
 
@@ -161,33 +161,33 @@ func (c *SMSGatewayClient) CheckHealth() error {
 		return err
 	}
 	healthReq.SetBasicAuth(c.username, c.password)
-	
+
 	resp, err := c.client.Do(healthReq)
 	if err != nil {
 		return fmt.Errorf("failed to connect to SMS Gateway: %v", err)
 	}
 	defer resp.Body.Close()
-	
+
 	if resp.StatusCode != http.StatusOK {
 		return fmt.Errorf("SMS Gateway health check returned status %d", resp.StatusCode)
 	}
-	
+
 	return nil
 }
 
 // CheckSMSGatewayHealth checks if the SMS Gateway is healthy (legacy function for startup)
 func CheckSMSGatewayHealth(url string) error {
 	client := &http.Client{Timeout: 2 * time.Second}
-	
+
 	resp, err := client.Get(url + "/health")
 	if err != nil {
 		return fmt.Errorf("failed to connect to SMS Gateway: %v", err)
 	}
 	defer resp.Body.Close()
-	
+
 	if resp.StatusCode != http.StatusOK {
 		return fmt.Errorf("SMS Gateway health check returned status %d", resp.StatusCode)
 	}
-	
+
 	return nil
 }
