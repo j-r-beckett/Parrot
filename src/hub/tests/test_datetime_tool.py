@@ -10,11 +10,7 @@ from timezonefinder import TimezoneFinder
 
 from assistant.dependencies import AssistantDependencies
 from assistant.tools.datetime import register_datetime_tool
-
-
-class MockLogger:
-    def info(self, *args, **kwargs):
-        pass
+from tests.utils import MockLogger
 
 
 async def mock_geocode(location: str) -> tuple[float, float]:

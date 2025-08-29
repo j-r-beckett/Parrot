@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 from typing import Callable, Awaitable
-from logging import Logger
+from litestar.types.protocols import Logger
 import httpx
 from functools import partial
 from litestar.datastructures import State

@@ -3,8 +3,9 @@ from aiosqlitepool import SQLiteConnectionPool
 import os
 import json
 import uuid
-from typing import List, Optional, Tuple
-from logging import Logger
+from typing import List, Optional, Tuple, cast
+from litestar.types.protocols import Logger
+from aiosqlitepool.protocols import Connection as PoolConnection
 from pydantic_ai.messages import ModelMessage, ModelMessagesTypeAdapter
 
 
@@ -27,7 +28,7 @@ async def init_database(db_pool: SQLiteConnectionPool) -> None:
             CREATE INDEX IF NOT EXISTS idx_user_phone_number 
             ON messages(user_phone_number)
         """)
-        await db.commit()
+        await db.commit()  # type: ignore
 
 
 async def load_last_conversation(
@@ -76,7 +77,7 @@ async def save_conversation(
             (conversation_id, phone_number, messages_json),
         )
 
-        await db.commit()
+        await db.commit()  # type: ignore
 
 
 async def create_db_pool(db_path: str, logger: Logger) -> SQLiteConnectionPool:
@@ -86,7 +87,7 @@ async def create_db_pool(db_path: str, logger: Logger) -> SQLiteConnectionPool:
     async def sqlite_connection() -> aiosqlite.Connection:
         return await aiosqlite.connect(db_path)
 
-    db_pool = SQLiteConnectionPool(connection_factory=sqlite_connection)
+    db_pool = SQLiteConnectionPool(connection_factory=sqlite_connection)  # type: ignore
     await init_database(db_pool)
     logger.info("Database initialized")
     return db_pool

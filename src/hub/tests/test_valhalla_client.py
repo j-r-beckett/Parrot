@@ -2,8 +2,10 @@ import json
 import pytest
 import httpx
 from pathlib import Path
+from typing import cast
 
 import clients.valhalla as valhalla_client
+from clients.valhalla import TravelMode
 
 
 @pytest.fixture
@@ -148,7 +150,7 @@ async def test_directions_different_modes():
             captured_payloads.clear()
 
             await valhalla_client.directions(
-                client, start=(40.7580, -73.9855), end=(40.7829, -73.9654), mode=mode
+                client, start=(40.7580, -73.9855), end=(40.7829, -73.9654), mode=cast(TravelMode, mode)
             )
 
             # Verify the correct costing model was used

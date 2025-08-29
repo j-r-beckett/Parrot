@@ -1,5 +1,5 @@
 import httpx
-from logging import Logger
+from litestar.types.protocols import Logger
 from schemas.weather import HourlyForecast, TwelveHourForecast
 
 

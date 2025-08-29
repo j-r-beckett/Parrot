@@ -4,6 +4,7 @@ import httpx
 from pathlib import Path
 
 import clients.weather as weather_client
+from tests.utils import MockLogger
 
 
 @pytest.fixture
@@ -29,9 +30,6 @@ def twelve_hour_forecast_response(fixture_dir):
         return json.load(f)
 
 
-class MockLogger:
-    def info(self, *args, **kwargs):
-        pass
 
 
 @pytest.mark.asyncio

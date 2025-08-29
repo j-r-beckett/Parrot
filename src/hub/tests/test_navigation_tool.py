@@ -8,11 +8,7 @@ from pydantic_ai.models.test import TestModel
 
 from assistant.dependencies import AssistantDependencies
 from assistant.tools.navigation import register_navigation_tool
-
-
-class MockLogger:
-    def info(self, *args, **kwargs):
-        pass
+from tests.utils import MockLogger
 
 
 async def mock_geocode(location: str) -> tuple[float, float]:

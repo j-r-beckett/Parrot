@@ -104,16 +104,21 @@ uv run litestar run --reload
 # Run tests
 uv run python -m pytest
 
+# Type checking with pyrefly
+pyrefly check
+
 # Alternative port if 8000 is taken
 uv run litestar run --host 0.0.0.0 --port 8001 --reload
 ```
 
-### Testing
+### Testing & Type Checking
 - **Comprehensive test suite** in `tests/` directory with JSON fixtures for external API responses
 - **Webhook handler tests** - Test SMS conversation flows, message history, and database persistence
 - **Tool integration tests** - Test weather, navigation, and datetime tools using Pydantic AI's TestModel
 - **Client unit tests** - Test HTTP API integrations and data transformations
 - **Test patterns**: Uses httpx MockTransport for API mocking and TestModel for tool testing
+- **Type checking**: Uses pyrefly for static type analysis - run `pyrefly check` to verify type safety
+- **Important**: All commands must be run from `src/hub/` directory - import errors indicate wrong working directory, not type issues
 
 ## Deployment
 
@@ -188,3 +193,8 @@ The hub automatically registers with sms-proxy on startup to receive:
 - `app.py` - Sets the environment variable at startup before any imports
 - `.envrc` - Sets the variable for development/testing environments
 - Use PydanticAI's `new_messages_json()` method for proper message serialization
+
+### aiosqlitepool Type Checking
+**Issue**: aiosqlitepool acts as a wrapper around aiosqlite connections, but the type definitions don't fully capture this relationship. The pool returns actual aiosqlite connections but types them as a minimal protocol, creating mismatches between what the type checker expects and what's available at runtime.
+
+**Solution**: Use `# type: ignore` comments in database code where the type checker can't understand the connection wrapping behavior.

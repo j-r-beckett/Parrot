@@ -13,7 +13,7 @@ def create_assistant(dependencies_type: type[AssistantDependencies] = AssistantD
         system_prompt=settings.prompts.assistant,
         model_settings=AnthropicModelSettings(
             max_tokens=settings.llm.max_tokens,
-            thinking={"type": "enabled", "budget_tokens": settings.llm.max_tokens // 2}
+            anthropic_thinking={"type": "enabled", "budget_tokens": settings.llm.max_tokens // 2}
         ),
         builtin_tools=[WebSearchTool(), CodeExecutionTool()]
     )

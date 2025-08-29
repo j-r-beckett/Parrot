@@ -45,7 +45,7 @@ async def handle_sms_proxy_received(
     await save_conversation(
         state.db_pool,
         data.payload.phone_number,
-        result.new_messages_json(),
+        result.new_messages_json().decode('utf-8'),
         conversation_id
     )
 

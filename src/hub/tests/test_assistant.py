@@ -70,7 +70,7 @@ async def test_new_conversation_first_time():
             ]),
             ModelResponse(parts=[TextPart(content="Hello! How can I help you?")])
         ]
-        mock_result.new_messages_json.return_value = ModelMessagesTypeAdapter.dump_json(mock_messages).decode('utf-8')
+        mock_result.new_messages_json.return_value = ModelMessagesTypeAdapter.dump_json(mock_messages)
         mock_assistant.run = AsyncMock(return_value=mock_result)
         
         # Create state and SMS payload
@@ -112,7 +112,7 @@ async def test_new_conversation_first_time():
         assert messages[0].parts[1].content == "Hello"
         
         assert isinstance(messages[1], ModelResponse)
-        assert messages[1].parts[0].content == "Hello! How can I help you?"
+        assert isinstance(messages[1].parts[0], TextPart) and messages[1].parts[0].content == "Hello! How can I help you?"
         
     finally:
         await _cleanup_test_db_and_mocks(db_path, db_pool, originals)
@@ -146,7 +146,7 @@ async def test_new_conversation_after_previous():
             ]),
             ModelResponse(parts=[TextPart(content="Hello again! How can I help?")])
         ]
-        mock_result.new_messages_json.return_value = ModelMessagesTypeAdapter.dump_json(mock_messages).decode('utf-8')
+        mock_result.new_messages_json.return_value = ModelMessagesTypeAdapter.dump_json(mock_messages)
         mock_assistant.run = AsyncMock(return_value=mock_result)
         
         # Create state and SMS payload (no ! prefix)
@@ -187,7 +187,7 @@ async def test_new_conversation_after_previous():
         assert messages[0].parts[1].content == "New question"
         
         assert isinstance(messages[1], ModelResponse)  
-        assert messages[1].parts[0].content == "Hello again! How can I help?"
+        assert isinstance(messages[1].parts[0], TextPart) and messages[1].parts[0].content == "Hello again! How can I help?"
         
     finally:
         await _cleanup_test_db_and_mocks(db_path, db_pool, originals)
@@ -209,7 +209,7 @@ async def test_continue_conversation_no_history():
             ]),
             ModelResponse(parts=[TextPart(content="I don't have previous context, but let me help!")])
         ]
-        mock_result.new_messages_json.return_value = ModelMessagesTypeAdapter.dump_json(mock_messages).decode('utf-8')
+        mock_result.new_messages_json.return_value = ModelMessagesTypeAdapter.dump_json(mock_messages)
         mock_assistant.run = AsyncMock(return_value=mock_result)
         
         # Create state and SMS payload with ! prefix but no history
@@ -273,7 +273,7 @@ async def test_continue_conversation_with_history():
             ModelRequest(parts=[UserPromptPart(content="What about 3+3?")]),
             ModelResponse(parts=[TextPart(content="3+3 equals 6.")])
         ]
-        mock_result.new_messages_json.return_value = ModelMessagesTypeAdapter.dump_json(mock_messages).decode('utf-8')
+        mock_result.new_messages_json.return_value = ModelMessagesTypeAdapter.dump_json(mock_messages)
         mock_assistant.run = AsyncMock(return_value=mock_result)
         
         # Create state and SMS payload with ! prefix
@@ -321,7 +321,7 @@ async def test_continue_conversation_with_history():
         assert messages[0].parts[1].content == "What's 2+2?"
         
         assert isinstance(messages[1], ModelResponse)
-        assert messages[1].parts[0].content == "2+2 equals 4."
+        assert isinstance(messages[1].parts[0], TextPart) and messages[1].parts[0].content == "2+2 equals 4."
         
         # Check second exchange (no system prompt)
         assert isinstance(messages[2], ModelRequest)
@@ -329,7 +329,7 @@ async def test_continue_conversation_with_history():
         assert messages[2].parts[0].content == "What about 3+3?"
         
         assert isinstance(messages[3], ModelResponse)
-        assert messages[3].parts[0].content == "3+3 equals 6."
+        assert isinstance(messages[3].parts[0], TextPart) and messages[3].parts[0].content == "3+3 equals 6."
         
     finally:
         await _cleanup_test_db_and_mocks(db_path, db_pool, originals)

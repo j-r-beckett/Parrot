@@ -1,5 +1,5 @@
 from contextlib import asynccontextmanager
-from typing import AsyncGenerator
+from typing import AsyncGenerator, cast
 import asyncio
 from litestar import Litestar
 import httpx
@@ -13,14 +13,14 @@ from clients.sms_proxy import create_sms_proxy_client, register_and_maintain
 async def lifespan(app: Litestar) -> AsyncGenerator[None, None]:
     weather_httpx_client = httpx.AsyncClient(
         base_url=settings.nws.api_url,
-        headers={"User-Agent": settings.nws.user_agent},
+        headers={"User-Agent": cast(str, settings.nws.user_agent)},
         timeout=10.0,
         follow_redirects=True,
     )
 
     nominatim_httpx_client = httpx.AsyncClient(
         base_url=settings.nominatim.api_url,
-        headers={"User-Agent": settings.nominatim.user_agent},
+        headers={"User-Agent": cast(str, settings.nominatim.user_agent)},
         timeout=10.0,
         follow_redirects=True,
     )
@@ -32,7 +32,10 @@ async def lifespan(app: Litestar) -> AsyncGenerator[None, None]:
     )
 
     # Create database connection factory and pool
-    db_pool = await create_db_pool(settings.conversations_db, app.logger)
+    logger = app.logger
+    if logger is None:
+        raise RuntimeError("App logger is None")
+    db_pool = await create_db_pool(settings.conversations_db, logger)
 
     # Create clients
     sms_proxy_client = create_sms_proxy_client(settings.sms_proxy_url)
@@ -45,7 +48,7 @@ async def lifespan(app: Litestar) -> AsyncGenerator[None, None]:
                 client_id=f"parrot-hub-{settings.ring}",
                 webhook_url=f"{settings.webhook.base_url}/webhook/sms-proxy",
                 ring=settings.ring,
-                logger=app.logger,
+                logger=logger,
                 on_received=True,  # We want to receive SMS
                 on_delivered=True,  # We want delivery notifications
             )
