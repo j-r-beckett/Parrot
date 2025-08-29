@@ -3,8 +3,9 @@ from aiosqlitepool import SQLiteConnectionPool
 import os
 import json
 import uuid
-from typing import List, Optional, Dict, Any, Tuple
+from typing import List, Optional, Tuple
 from logging import Logger
+from pydantic_ai.messages import ModelMessage, ModelMessagesTypeAdapter
 
 
 async def init_database(db_pool: SQLiteConnectionPool) -> None:
@@ -31,7 +32,7 @@ async def init_database(db_pool: SQLiteConnectionPool) -> None:
 
 async def load_last_conversation(
     db_pool: SQLiteConnectionPool, phone_number: str
-) -> Tuple[List[Dict[str, Any]], Optional[str]]:
+) -> Tuple[List[ModelMessage], Optional[str]]:
     """Load the last conversation for a phone number. Returns (messages, conversation_id) or ([], None)."""
     async with db_pool.connection() as db:
         # First, find the most recent conversation_id for this user
@@ -51,7 +52,10 @@ async def load_last_conversation(
             (conversation_id,),
         )
         rows = await cursor.fetchall()
-        messages = [json.loads(row[0]) for row in rows]
+        messages = []
+        for row in rows:
+            parsed = json.loads(row[0])
+            messages.extend(ModelMessagesTypeAdapter.validate_python(parsed))
 
         return (messages, conversation_id)
 
@@ -59,7 +63,7 @@ async def load_last_conversation(
 async def save_conversation(
     db_pool: SQLiteConnectionPool,
     phone_number: str,
-    messages: List[Dict[str, Any]],
+    messages: List[ModelMessage],
     conversation_id: Optional[str] = None,
 ) -> None:
     """Save new messages to the conversation for a phone number."""
@@ -67,10 +71,12 @@ async def save_conversation(
         conversation_id = str(uuid.uuid4())
 
     async with db_pool.connection() as db:
-        for msg in messages:
+        # Save all messages as a single JSON array
+        if messages:
+            serialized_messages = ModelMessagesTypeAdapter.dump_json(messages).decode()
             await db.execute(
                 "INSERT INTO messages (conversation_id, user_phone_number, message) VALUES (?, ?, ?)",
-                (conversation_id, phone_number, json.dumps(msg)),
+                (conversation_id, phone_number, serialized_messages),
             )
         await db.commit()
 

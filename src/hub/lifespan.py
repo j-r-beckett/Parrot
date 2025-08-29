@@ -5,7 +5,6 @@ from litestar import Litestar
 import httpx
 
 from config import settings
-from assistant.llm import Assistant
 from database.manager import create_db_pool
 from clients.sms_proxy import create_sms_proxy_client, register_and_maintain
 
@@ -32,8 +31,6 @@ async def lifespan(app: Litestar) -> AsyncGenerator[None, None]:
         follow_redirects=True,
     )
 
-    # Create the Assistant instance
-    assistant = Assistant(settings.llm)
 
     # Create database connection factory and pool
     db_pool = await create_db_pool(settings.conversations_db, app.logger)
@@ -62,7 +59,6 @@ async def lifespan(app: Litestar) -> AsyncGenerator[None, None]:
     app.state.weather_httpx_client = weather_httpx_client
     app.state.nominatim_httpx_client = nominatim_httpx_client
     app.state.valhalla_httpx_client = valhalla_httpx_client
-    app.state.assistant = assistant
     app.state.db_pool = db_pool
 
     try:

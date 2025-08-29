@@ -1,7 +1,6 @@
 from litestar.datastructures import State
 import httpx
 from aiosqlitepool import SQLiteConnectionPool
-from assistant.llm import Assistant
 
 
 async def get_sms_proxy_client(state: State) -> httpx.AsyncClient:
@@ -18,10 +17,6 @@ async def get_nominatim_httpx_client(state: State) -> httpx.AsyncClient:
 
 async def get_valhalla_httpx_client(state: State) -> httpx.AsyncClient:
     return state.valhalla_httpx_client
-
-
-async def get_assistant(state: State) -> Assistant:
-    return state.assistant
 
 
 async def get_db_pool(state: State) -> SQLiteConnectionPool:

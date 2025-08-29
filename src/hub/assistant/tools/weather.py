@@ -1,20 +1,17 @@
 import clients.weather as weather_client
-from logging import Logger
-from typing import Callable, Awaitable
-import httpx
+from pydantic_ai import Agent
+from pydantic_ai.tools import RunContext
+from assistant.dependencies import AssistantDependencies
 
 
-def forecast_tool(
-    weather_httpx_client: httpx.AsyncClient,
-    geocode: Callable[[str], Awaitable[tuple[float, float]]],
-    logger: Logger,
-):
-    async def forecast(location: str) -> str:
+def register_weather_tool(agent: Agent[AssistantDependencies, str]) -> None:
+    """Register weather tool on the agent."""
+    
+    @agent.tool
+    async def forecast(ctx: RunContext[AssistantDependencies], location: str) -> str:
         """Returns a weather forecast formatted as JSON."""
-        lat, lon = await geocode(location)
+        lat, lon = await ctx.deps.geocode(location)
         forecast = await weather_client.twelve_hour_forecast(
-            weather_httpx_client, logger, lat, lon
+            ctx.deps.weather_client, ctx.deps.logger, lat, lon
         )
         return forecast.model_dump_json()
-
-    return forecast

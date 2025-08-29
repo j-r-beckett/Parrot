@@ -5,7 +5,8 @@ description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.13"
 dependencies = [
-    "mirascope[anthropic]>=1.0.0",
+    "pydantic-ai>=0.8.0",
+    "anthropic>=0.28.0",
     "httpx>=0.28.1",
     "litestar>=2.16.0",
     "pydantic>=2.11.7",

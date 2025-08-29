@@ -1,15 +1,19 @@
 from datetime import datetime
 from timezonefinder import TimezoneFinder
 import pytz
-from typing import Callable, Awaitable
+from pydantic_ai import Agent
+from pydantic_ai.tools import RunContext
+from assistant.dependencies import AssistantDependencies
+
+# Initialize TimezoneFinder at module level since it's expensive to create
+tf = TimezoneFinder()
 
 
-def datetime_tool(geocode: Callable[[str], Awaitable[tuple[float, float]]]):
-    """Create a datetime tool function for the assistant."""
+def register_datetime_tool(agent: Agent[AssistantDependencies, str]) -> None:
+    """Register datetime tool on the agent."""
 
-    tf = TimezoneFinder()
-
-    async def get_current_datetime(location: str) -> str:
+    @agent.tool
+    async def get_current_datetime(ctx: RunContext[AssistantDependencies], location: str) -> str:
         """Get the current date and time for a location.
 
         Args:
@@ -19,7 +23,7 @@ def datetime_tool(geocode: Callable[[str], Awaitable[tuple[float, float]]]):
             The current date and time in YYYY-MM-DD HH:MM:SS format
         """
         # Geocode the location to get coordinates
-        lat, lon = await geocode(location)
+        lat, lon = await ctx.deps.geocode(location)
 
         # Get timezone for the coordinates
         timezone_str = tf.timezone_at(lat=lat, lng=lon)
@@ -34,5 +38,3 @@ def datetime_tool(geocode: Callable[[str], Awaitable[tuple[float, float]]]):
 
         # Return formatted datetime without timezone info
         return local_time.strftime("%Y-%m-%d %H:%M:%S")
-
-    return get_current_datetime
