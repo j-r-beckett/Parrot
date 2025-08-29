@@ -1,5 +1,6 @@
 from pydantic_ai import Agent
 from pydantic_ai.models.anthropic import AnthropicModelSettings
+from pydantic_ai.builtin_tools import WebSearchTool, CodeExecutionTool
 from config import settings
 from .dependencies import AssistantDependencies
 
@@ -13,7 +14,8 @@ def create_assistant(dependencies_type: type[AssistantDependencies] = AssistantD
         model_settings=AnthropicModelSettings(
             max_tokens=settings.llm.max_tokens,
             thinking={"type": "enabled", "budget_tokens": settings.llm.max_tokens // 2}
-        )
+        ),
+        builtin_tools=[WebSearchTool(), CodeExecutionTool()]
     )
     
     # Register tools

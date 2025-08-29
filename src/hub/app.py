@@ -1,3 +1,8 @@
+import os
+
+# Disable Anthropic and OpenAI SDK deferred schema building. Prevents errors during message serialization
+os.environ["DEFER_PYDANTIC_BUILD"] = "false"
+
 from litestar import Litestar
 from litestar.logging import LoggingConfig
 from lifespan import lifespan

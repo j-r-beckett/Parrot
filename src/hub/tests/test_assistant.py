@@ -9,7 +9,7 @@ import routes.webhook
 from routes.webhook import handle_sms_proxy_received
 from schemas.sms import SmsReceived, SmsReceivedPayload
 from database.manager import create_db_pool, save_conversation, load_last_conversation
-from pydantic_ai.messages import UserPromptPart, ModelRequest, ModelResponse, TextPart, SystemPromptPart
+from pydantic_ai.messages import UserPromptPart, ModelRequest, ModelResponse, TextPart, SystemPromptPart, ModelMessagesTypeAdapter
 
 
 class MockRequest:
@@ -63,13 +63,14 @@ async def test_new_conversation_first_time():
         # Mock assistant.run for first-time user
         mock_result = Mock()
         mock_result.output = "Hello! How can I help you?"
-        mock_result.new_messages.return_value = [
+        mock_messages = [
             ModelRequest(parts=[
                 SystemPromptPart(content="You are a helpful assistant."),
                 UserPromptPart(content="Hello")
             ]),
             ModelResponse(parts=[TextPart(content="Hello! How can I help you?")])
         ]
+        mock_result.new_messages_json.return_value = ModelMessagesTypeAdapter.dump_json(mock_messages).decode('utf-8')
         mock_assistant.run = AsyncMock(return_value=mock_result)
         
         # Create state and SMS payload
@@ -132,18 +133,20 @@ async def test_new_conversation_after_previous():
             ]),
             ModelResponse(parts=[TextPart(content="Old answer")])
         ]
-        await save_conversation(db_pool, "+15551234567", old_messages, old_conversation_id)
+        old_messages_json = ModelMessagesTypeAdapter.dump_json(old_messages).decode('utf-8')
+        await save_conversation(db_pool, "+15551234567", old_messages_json, old_conversation_id)
         
         # Mock assistant.run for new conversation (without ! prefix)
         mock_result = Mock()
         mock_result.output = "Hello again! How can I help?"
-        mock_result.new_messages.return_value = [
+        mock_messages = [
             ModelRequest(parts=[
                 SystemPromptPart(content="You are a helpful assistant."),
                 UserPromptPart(content="New question")
             ]),
             ModelResponse(parts=[TextPart(content="Hello again! How can I help?")])
         ]
+        mock_result.new_messages_json.return_value = ModelMessagesTypeAdapter.dump_json(mock_messages).decode('utf-8')
         mock_assistant.run = AsyncMock(return_value=mock_result)
         
         # Create state and SMS payload (no ! prefix)
@@ -199,13 +202,14 @@ async def test_continue_conversation_no_history():
         # Mock assistant.run - when no history is found, should start new conversation
         mock_result = Mock()
         mock_result.output = "I don't have previous context, but let me help!"
-        mock_result.new_messages.return_value = [
+        mock_messages = [
             ModelRequest(parts=[
                 SystemPromptPart(content="You are a helpful assistant."),
                 UserPromptPart(content="Continue from before")
             ]),
             ModelResponse(parts=[TextPart(content="I don't have previous context, but let me help!")])
         ]
+        mock_result.new_messages_json.return_value = ModelMessagesTypeAdapter.dump_json(mock_messages).decode('utf-8')
         mock_assistant.run = AsyncMock(return_value=mock_result)
         
         # Create state and SMS payload with ! prefix but no history
@@ -259,15 +263,17 @@ async def test_continue_conversation_with_history():
             ]),
             ModelResponse(parts=[TextPart(content="2+2 equals 4.")])
         ]
-        await save_conversation(db_pool, "+15551234567", initial_messages, conversation_id)
+        initial_messages_json = ModelMessagesTypeAdapter.dump_json(initial_messages).decode('utf-8')
+        await save_conversation(db_pool, "+15551234567", initial_messages_json, conversation_id)
         
         # Mock assistant.run for continuation (no system prompt in new messages)
         mock_result = Mock()
         mock_result.output = "3+3 equals 6."
-        mock_result.new_messages.return_value = [
+        mock_messages = [
             ModelRequest(parts=[UserPromptPart(content="What about 3+3?")]),
             ModelResponse(parts=[TextPart(content="3+3 equals 6.")])
         ]
+        mock_result.new_messages_json.return_value = ModelMessagesTypeAdapter.dump_json(mock_messages).decode('utf-8')
         mock_assistant.run = AsyncMock(return_value=mock_result)
         
         # Create state and SMS payload with ! prefix

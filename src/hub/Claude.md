@@ -29,6 +29,8 @@ The hub service is built on:
 2. **Navigation** - Turn-by-turn directions via Valhalla routing service  
 3. **DateTime** - Current time for any location with timezone handling
 4. **Geocoding** - Location lookup via Nominatim/OpenStreetMap
+5. **Web Search** - PydanticAI builtin WebSearchTool for current information
+6. **Code Execution** - PydanticAI builtin CodeExecutionTool (Anthropic's tool lets the model run Python3)
 
 ## Key Components
 
@@ -174,3 +176,15 @@ The hub automatically registers with sms-proxy on startup to receive:
 - Structured logging throughout the application
 - Automatic sms-proxy re-registration every 45 seconds
 - Database initialization on startup
+
+## Common Issues and Solutions
+
+### MockValSer Serialization Error
+**Error**: `TypeError: 'MockValSer' object cannot be converted to 'SchemaSerializer'`
+
+**Cause**: Anthropic and OpenAI SDKs use deferred Pydantic schema building (`defer_build=True`) which creates MockValSer placeholders instead of real schema serializers. This breaks serialization of message objects containing web search results or other complex tool outputs.
+
+**Solution**: Set `DEFER_PYDANTIC_BUILD=false` environment variable to disable deferred schema building. This is handled in:
+- `app.py` - Sets the environment variable at startup before any imports
+- `.envrc` - Sets the variable for development/testing environments
+- Use PydanticAI's `new_messages_json()` method for proper message serialization

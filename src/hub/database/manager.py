@@ -63,7 +63,7 @@ async def load_last_conversation(
 async def save_conversation(
     db_pool: SQLiteConnectionPool,
     phone_number: str,
-    messages: List[ModelMessage],
+    messages_json: str,
     conversation_id: Optional[str] = None,
 ) -> None:
     """Save new messages to the conversation for a phone number."""
@@ -71,13 +71,11 @@ async def save_conversation(
         conversation_id = str(uuid.uuid4())
 
     async with db_pool.connection() as db:
-        # Save all messages as a single JSON array
-        if messages:
-            serialized_messages = ModelMessagesTypeAdapter.dump_json(messages).decode()
-            await db.execute(
-                "INSERT INTO messages (conversation_id, user_phone_number, message) VALUES (?, ?, ?)",
-                (conversation_id, phone_number, serialized_messages),
-            )
+        await db.execute(
+            "INSERT INTO messages (conversation_id, user_phone_number, message) VALUES (?, ?, ?)",
+            (conversation_id, phone_number, messages_json),
+        )
+
         await db.commit()
 
 

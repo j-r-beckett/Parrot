@@ -31,7 +31,6 @@ async def lifespan(app: Litestar) -> AsyncGenerator[None, None]:
         follow_redirects=True,
     )
 
-
     # Create database connection factory and pool
     db_pool = await create_db_pool(settings.conversations_db, app.logger)
 

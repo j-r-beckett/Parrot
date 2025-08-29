@@ -41,11 +41,11 @@ async def handle_sms_proxy_received(
         message_history=message_history
     )
 
-    # Save conversation
+    # Save conversation using PydanticAI's built-in JSON serialization
     await save_conversation(
         state.db_pool,
         data.payload.phone_number,
-        result.new_messages(),
+        result.new_messages_json(),
         conversation_id
     )
 
