@@ -42,17 +42,20 @@ async def lifespan(app: Litestar) -> AsyncGenerator[None, None]:
     sms_proxy_client = create_sms_proxy_client(settings.sms_proxy_url)
 
     # Start sms-proxy registration task
-    registration_task = asyncio.create_task(
-        register_and_maintain(
-            sms_proxy_client,
-            client_id=f"parrot-hub-{settings.ring}",
-            webhook_url=f"{settings.webhook.base_url}/webhook/sms-proxy",
-            ring=settings.ring,
-            logger=app.logger,
-            on_received=True,  # We want to receive SMS
-            on_delivered=True,  # We want delivery notifications
+    if settings.ring != "local":
+        registration_task = asyncio.create_task(
+            register_and_maintain(
+                sms_proxy_client,
+                client_id=f"parrot-hub-{settings.ring}",
+                webhook_url=f"{settings.webhook.base_url}/webhook/sms-proxy",
+                ring=settings.ring,
+                logger=app.logger,
+                on_received=True,  # We want to receive SMS
+                on_delivered=True,  # We want delivery notifications
+            )
         )
-    )
+    else:
+        registration_task = None
 
     # Store clients in app state
     app.state.sms_proxy_client = sms_proxy_client
@@ -65,12 +68,13 @@ async def lifespan(app: Litestar) -> AsyncGenerator[None, None]:
     try:
         yield
     finally:
-        # Cancel registration task
-        registration_task.cancel()
-        try:
-            await registration_task
-        except asyncio.CancelledError:
-            pass
+        if registration_task:
+            # Cancel registration task
+            registration_task.cancel()
+            try:
+                await registration_task
+            except asyncio.CancelledError:
+                pass
 
         # Close all clients
         await sms_proxy_client.aclose()

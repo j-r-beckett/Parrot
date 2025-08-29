@@ -1,0 +1,37 @@
+services:
+  sms-proxy:
+    build: ./sms-proxy
+    ports:
+      - "8001:8000"
+    environment:
+      - PRIVATE_IP=172.20.0.1
+    networks:
+      parrot-local:
+        ipv4_address: 172.20.0.2
+    command: ["sh", "-c", "./sms-proxy -port 8000 -private-ip $$PRIVATE_IP -password dev-password"]
+
+  hub:
+    build: ./hub
+    ports:
+      - "8000:8000"
+    environment:
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+      - HOST_URL=http://localhost:8000
+      - SMS_PROXY_URL=http://sms-proxy:8000
+      - CONVERSATIONS_DB=/data/conversations.db
+      - RING=local
+    volumes:
+      - hub-data:/data
+    networks:
+      parrot-local:
+        ipv4_address: 172.20.0.1
+
+networks:
+  parrot-local:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.0.0/16
+
+volumes:
+  hub-data:

@@ -11,6 +11,7 @@ import clients.nominatim as nominatim_client
 import clients.valhalla as valhalla_client
 from mirascope import Messages
 from config import settings
+from database.manager import load_last_conversation, save_conversation
 
 
 @post("/webhook/sms-proxy/received")
@@ -19,6 +20,20 @@ async def handle_sms_proxy_received(
 ) -> str:
     """Handle SMS received webhooks from sms-proxy."""
     request.logger.info(f"SMS received: {data}")
+
+    # Check if this should continue existing conversation (starts with "! ")
+    conversation_id = None
+    if data.payload.message.startswith("! "):
+        # Load existing conversation and strip the "! " prefix
+        messages, conversation_id = await load_last_conversation(state.db_pool, data.payload.phone_number)
+        if conversation_id is None:
+            messages = [Messages.System(settings.prompts.assistant).model_dump()]
+        # Remove the "! " prefix from the message
+        actual_message = data.payload.message[2:]
+    else:
+        # Start new conversation
+        messages = [Messages.System(settings.prompts.assistant).model_dump()]
+        actual_message = data.payload.message
 
     # Create partial functions with httpx clients bound
     geocode = partial(nominatim_client.geocode, state.nominatim_httpx_client)
@@ -31,13 +46,23 @@ async def handle_sms_proxy_received(
         navigation_tool(get_directions, geocode),
     ]
 
-    # Set up initial messages with system prompt
-    messages = [Messages.System(settings.prompts.assistant).model_dump()]
+    # Remember the original message count
+    original_message_count = len(messages)
 
     # Process the incoming SMS and generate a response
-    response, _ = await state.assistant.step(messages, tools, data.payload.message)
+    response, all_messages = await state.assistant.step(
+        messages, tools, actual_message
+    )
 
-    # Send response back via sms-proxy
+    # Save only the new messages to database
+    new_messages = all_messages[original_message_count:]
+    await save_conversation(state.db_pool, data.payload.phone_number, new_messages, conversation_id)
+
+    # If we're running locally w/ no sms-proxy, just return
+    if settings.ring == "local":
+        return response
+
+    # If we're not running locally, send response back via sms-proxy
     await send_sms_sms_proxy(
         state.sms_proxy_client,
         response,
