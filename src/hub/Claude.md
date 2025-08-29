@@ -6,7 +6,7 @@ The **hub** is a Litestar-based Python service that acts as an intelligent SMS a
 
 The hub service is built on:
 - **Litestar** - Fast ASGI web framework
-- **Mirascope** - LLM integration library with Anthropic Claude support
+- **Pydantic AI** - LLM integration library with Anthropic Claude support
 - **SQLite** - Conversation persistence with connection pooling
 - **httpx** - Async HTTP client for external API calls
 
@@ -50,7 +50,8 @@ routes/
 ### Assistant System
 ```
 assistant/
-├── llm.py          # Claude LLM integration with tool calling
+├── agent.py        # Pydantic AI agent factory and tool registration
+├── dependencies.py # Dependency injection for assistant tools
 └── tools/          # Tool implementations
     ├── weather.py    # NWS weather forecasts
     ├── navigation.py # Valhalla routing directions
@@ -106,9 +107,11 @@ uv run litestar run --host 0.0.0.0 --port 8001 --reload
 ```
 
 ### Testing
-- Test files in `tests/` directory
-- Fixtures for external API responses
-- Tests cover client integrations and assistant functionality
+- **Comprehensive test suite** in `tests/` directory with JSON fixtures for external API responses
+- **Webhook handler tests** - Test SMS conversation flows, message history, and database persistence
+- **Tool integration tests** - Test weather, navigation, and datetime tools using Pydantic AI's TestModel
+- **Client unit tests** - Test HTTP API integrations and data transformations
+- **Test patterns**: Uses httpx MockTransport for API mocking and TestModel for tool testing
 
 ## Deployment
 
@@ -152,7 +155,7 @@ The hub automatically registers with sms-proxy on startup to receive:
 1. SMS received via webhook from sms-proxy
 2. Check for conversation continuation (`! ` prefix)
 3. Load existing conversation or start new one
-4. Process message through Claude with available tools
+4. Process message through Pydantic AI agent with available tools
 5. Save conversation to database
 6. Send response via sms-proxy (unless running locally)
 
@@ -160,7 +163,7 @@ The hub automatically registers with sms-proxy on startup to receive:
 
 - **Async-first**: All I/O operations are async for better performance
 - **Connection pooling**: SQLite connection pooling for database efficiency  
-- **Tool-based AI**: Claude uses structured tools rather than free-form API calls
+- **Tool-based AI**: Pydantic AI agents use structured tools with type-safe dependency injection
 - **Persistent conversations**: Full conversation history maintained per phone number
 - **Environment-aware**: Different behavior based on deployment ring
 - **Resource cleanup**: Proper lifecycle management for HTTP clients and database connections
