@@ -25,7 +25,9 @@ async def handle_sms_proxy_received(
     conversation_id = None
     if data.payload.message.startswith("! "):
         # Load existing conversation and strip the "! " prefix
-        messages, conversation_id = await load_last_conversation(state.db_pool, data.payload.phone_number)
+        messages, conversation_id = await load_last_conversation(
+            state.db_pool, data.payload.phone_number
+        )
         if conversation_id is None:
             messages = [Messages.System(settings.prompts.assistant).model_dump()]
         # Remove the "! " prefix from the message
@@ -50,13 +52,13 @@ async def handle_sms_proxy_received(
     original_message_count = len(messages)
 
     # Process the incoming SMS and generate a response
-    response, all_messages = await state.assistant.step(
-        messages, tools, actual_message
-    )
+    response, all_messages = await state.assistant.step(messages, tools, actual_message)
 
     # Save only the new messages to database
     new_messages = all_messages[original_message_count:]
-    await save_conversation(state.db_pool, data.payload.phone_number, new_messages, conversation_id)
+    await save_conversation(
+        state.db_pool, data.payload.phone_number, new_messages, conversation_id
+    )
 
     # If we're running locally w/ no sms-proxy, just return
     if settings.ring == "local":

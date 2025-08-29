@@ -58,9 +58,7 @@ async def test_haiku_tool_call():
     tools = [magic_number]
 
     response_text, updated_messages = await assistant.step(
-        messages=messages,
-        tools=tools,
-        query="What is the magic number?"
+        messages=messages, tools=tools, query="What is the magic number?"
     )
 
     # Verify the response contains 58
@@ -99,11 +97,9 @@ async def test_haiku_tool_call_exception():
     tools = [failing_tool]
 
     response_text, updated_messages = await assistant.step(
-        messages=messages,
-        tools=tools,
-        query="Use the failing tool"
+        messages=messages, tools=tools, query="Use the failing tool"
     )
-    
+
     # Verify the response handles the exception appropriately
     assert updated_messages is not None
     assert len(updated_messages) > 0

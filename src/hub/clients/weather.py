@@ -50,6 +50,4 @@ async def twelve_hour_forecast(
 
     logger.info("Resp: %s", forecast_response.json()["properties"]["periods"][0])
 
-    return TwelveHourForecast.from_nws_response(
-        forecast_data["properties"]["periods"]
-    )
+    return TwelveHourForecast.from_nws_response(forecast_data["properties"]["periods"])

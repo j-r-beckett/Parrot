@@ -29,4 +29,3 @@ def navigation_tool(
         return directions.model_dump_json()
 
     return navigate
-
