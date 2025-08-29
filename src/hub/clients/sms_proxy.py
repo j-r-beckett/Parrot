@@ -54,8 +54,8 @@ async def register_and_maintain(
             except Exception as e:
                 logger.error(f"Failed to register with sms-proxy: {e}")
 
-            # Re-register every 45 seconds (sms-proxy expires clients after 60s)
-            await asyncio.sleep(45)
+            # Re-register every 5 seconds (sms-proxy expires clients after 60s)
+            await asyncio.sleep(5)
     except asyncio.CancelledError:
         logger.info(f"Stopping sms-proxy registration for {client_id}")
         raise
