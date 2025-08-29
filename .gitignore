@@ -13,7 +13,7 @@ wheels/
 .env.local
 
 # Go build outputs
-src/android/bin/
+src/sms-proxy/bin/
 
 # Database files
 .db/

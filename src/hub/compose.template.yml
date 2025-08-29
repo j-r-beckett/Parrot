@@ -1,0 +1,14 @@
+services:
+  parrot-hub:
+    image: ${REGISTRY}/parrot:${RING}-${VERSION}
+    restart: unless-stopped
+    ports:
+      - "${PARROT_HUB_HOST_IP}:${PARROT_HUB_HOST_PORT}:8000"
+    environment:
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+      - HOST_URL=http://${PARROT_HUB_HOST_IP}:${PARROT_HUB_HOST_PORT}
+      - SMS_PROXY_URL=http://${SETTLER_IP}:${SMS_PROXY_PORT}
+      - CONVERSATIONS_DB=/data/conversations.db
+      - RING=${RING}
+    volumes:
+      - ./data:/data

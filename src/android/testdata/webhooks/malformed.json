@@ -1,5 +1,0 @@
-{
-  "deviceId": "test123",
-  "event": "sms:received",
-  "payload": "this should be an object not a string"
-}

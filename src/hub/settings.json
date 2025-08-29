@@ -1,0 +1,21 @@
+{
+  "debug": true,
+  "sms_proxy_url": "@format {env[SMS_PROXY_URL]}",
+  "llm": {
+    "model": "claude-sonnet-4",
+    "max_tokens": 2048,
+    "api_key": "@format {env[ANTHROPIC_API_KEY]}"
+  },
+  "webhook": {
+    "base_url": "@format {env[HOST_URL]}"
+  },
+  "nws": {
+    "api_url": "https://api.weather.gov",
+    "user_agent": "parrot-0.1"
+  },
+  "nominatim": {
+    "api_url": "https://nominatim.openstreetmap.org",
+    "user_agent": "parrot-0.1"
+  },
+  "conversations_db": ".db/conversations.db"
+}

@@ -1,0 +1,11 @@
+{
+  "deviceId": "0000000030604a7100000198ac2ebfa9",
+  "event": "sms:delivered",
+  "id": "XnTD2wHIl0zub8J1dmG6X",
+  "payload": {
+    "deliveredAt": "2025-08-23T12:20:04.535-07:00",
+    "messageId": "dffeada6-b833-4c3d-a221-723edb242ea5",
+    "phoneNumber": "+12064965136"
+  },
+  "webhookId": "drkD_6_D0nblq3IkoZbh-"
+}
