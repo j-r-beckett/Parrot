@@ -69,7 +69,7 @@ class CronRunner:
         self.db_pool = db_pool
         self.logger = logger
         self.functions = {func.function_id: func for func in func_pool}
-        self.instance_id = str(uuid.uuid4())
+        self.runner_id = str(uuid.uuid4())
 
     async def __aenter__(self) -> None:
         # initialize database
@@ -80,7 +80,8 @@ class CronRunner:
                     schedule TEXT NOT NULL,
                     function_id TEXT NOT NULL,
                     data TEXT NOT NULL,
-                    FIRE_AT TEXT NOT NULL
+                    fire_at TEXT NOT NULL,
+                    runner TEXT
                 ) 
             """)
 
@@ -97,17 +98,36 @@ class CronRunner:
         async def job_runner() -> None:
             while True:
                 try:
-                    coro, func, schedule, fire_at, input = await self.job_queue.get()
+                    (
+                        job_id,
+                        task,
+                        func,
+                        schedule,
+                        fired_at,
+                        input,
+                    ) = await self.job_queue.get()
                     try:
-                        result = await coro
+                        result = await task
+                        # Delete the completed job
+                        async with self.db_pool.connection() as db:
+                            await db.execute(
+                                "DELETE FROM cronjobs WHERE id = ?", (job_id,)
+                            )
+                            await db.commit()  # type: ignore
+
                         if result is not None:
-                            await self.submit(func, result, schedule, fire_at)
+                            await self.submit(func, result, schedule, fired_at)
                     except Exception as e:
                         self.logger.error(
                             f"Job {func.function_id} failed: {e}", exc_info=True
                         )
-                        # Reschedule the job with original input on failure
-                        await self.submit(func, input, schedule, fire_at)
+                        # Clear the runner field so job can be retried
+                        async with self.db_pool.connection() as db:
+                            await db.execute(
+                                "UPDATE cronjobs SET runner = NULL WHERE id = ?",
+                                (job_id,),
+                            )
+                            await db.commit()  # type: ignore
                 except asyncio.QueueShutDown:
                     break
 
@@ -117,32 +137,45 @@ class CronRunner:
 
                 now = datetime.now(timezone.utc)
                 async with self.db_pool.connection() as db:
-                    # Fetch ready jobs
+                    # Fetch ready jobs (only those not being processed by this runner)
                     cursor = await db.execute(
-                        "SELECT id, schedule, function_id, data, fire_at FROM cronjobs WHERE fire_at <= ? ORDER BY fire_at ASC",
-                        (now,),
+                        """
+                        SELECT id, schedule, function_id, data, fire_at 
+                        FROM cronjobs WHERE fire_at <= ? AND (runner IS NULL OR runner != ?) 
+                        ORDER BY fire_at ASC
+                        """,
+                        (now, self.runner_id),
                     )
                     rows = await cursor.fetchall()
 
                     if rows:
-                        # Delete the jobs we're about to process
-                        job_ids = [str(row[0]) for row in rows]
+                        # Mark the jobs we're about to process with our runner_id
+                        job_ids = [row[0] for row in rows]
                         placeholders = ",".join("?" * len(job_ids))
                         await db.execute(
-                            f"DELETE FROM cronjobs WHERE id IN ({placeholders})",
-                            job_ids,
+                            f"UPDATE cronjobs SET runner = ? WHERE id IN ({placeholders})",
+                            [self.runner_id] + job_ids,
                         )
                         await db.commit()  # type: ignore
 
                 # Process jobs outside the db connection
                 for row in rows:
-                    id, schedule, function_id, data, fire_at = row
+                    id, schedule, function_id, data, fired_at = row
                     func = self.functions[function_id]
                     input = func.model_type.model_validate_json(data)
 
-                    coro = func(job_id=str(id), schedule=schedule, input=input)
+                    task = asyncio.create_task(
+                        func(job_id=str(id), schedule=schedule, input=input)
+                    )
                     await self.job_queue.put(
-                        (coro, func, schedule, datetime.fromisoformat(fire_at), input)
+                        (
+                            id,
+                            task,
+                            func,
+                            schedule,
+                            datetime.fromisoformat(fired_at),
+                            input,
+                        )
                     )
 
                 await wait
@@ -150,24 +183,28 @@ class CronRunner:
         self.job_runner = asyncio.create_task(job_runner())
         self.db_reader = asyncio.create_task(db_reader())
 
-    async def __aexit__(self) -> None:
+    async def __aexit__(self, exc_type, exc_val, exc_tb) -> None:
+        # Cancel db_reader first
         self.db_reader.cancel()
         try:
-            await self.db_reader
+            await asyncio.wait_for(self.db_reader, timeout=1.0)
         except asyncio.CancelledError:
             pass
 
+        # Shutdown queue
         self.job_queue.shutdown()
-        await self.job_runner
+        
+        # Wait for job_runner with timeout too
+        await asyncio.wait_for(self.job_runner, timeout=1.0)
 
     async def submit(
         self,
         job: CronJobFunc,
         initial_input: TBaseModel,
         schedule: str,
-        last_ran_at: Optional[datetime] = None,
+        last_fired_at: Optional[datetime] = None,
     ) -> None:
-        fire_at = cronexpr.next_fire(schedule, last_ran_at)  # type: ignore
+        fire_at = cronexpr.next_fire(schedule, last_fired_at)  # type: ignore
 
         async with self.db_pool.connection() as db:
             await db.execute(
