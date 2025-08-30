@@ -289,6 +289,22 @@ wheels = [
 ]
 
 [[package]]
+name = "cronexpr"
+version = "0.30.0"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/01/2a/72d9b939fa00a9e77c613e7d7cee361a81d9df2d036493a522517d083a46/cronexpr-0.30.0.tar.gz", hash = "sha256:994660fdf9195bc2456e69fa447fb06d8256cdfd7fe8829be82add10b9f3e9ac", size = 9350, upload-time = "2024-09-11T03:46:03.278Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/3d/1b/a0a5ac3cc99268cda3a438ca9b55d12567180cc26d3191291b4343a8ee06/cronexpr-0.30.0-cp313-cp313-macosx_10_13_x86_64.whl", hash = "sha256:dc186d1a3b99cbaed6363c1ee79b5eeff724835cc4c12f39188b6db981681d1f", size = 59131, upload-time = "2024-09-11T03:45:19.649Z" },
+    { url = "https://files.pythonhosted.org/packages/d8/1f/27b43b778594d86c6b419ff4cd2b015c49c0ff204796b47e9626acdf1f87/cronexpr-0.30.0-cp313-cp313-macosx_11_0_arm64.whl", hash = "sha256:da9db9656be179baa3b30f4484998faa8d7a9f491b467b4a620daba5ea29a2d0", size = 56335, upload-time = "2024-09-11T03:45:20.863Z" },
+    { url = "https://files.pythonhosted.org/packages/6c/7b/4249bb448829498c3e7783e66d188993c085b4294c8d5f9808071e163e60/cronexpr-0.30.0-cp313-cp313-manylinux_2_17_i686.manylinux2014_i686.whl", hash = "sha256:a7038afad7d188ddc98caca3891640d556425f6c10de97de0da64dd7a9126974", size = 93819, upload-time = "2024-09-11T03:45:21.759Z" },
+    { url = "https://files.pythonhosted.org/packages/4b/71/1516e363a4b1386c0c35d716e0b798272415c1da215c9b2c6bdf0a99516e/cronexpr-0.30.0-cp313-cp313-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:ac76e65edc8491048c4a86d1785f12952a80f1df1bdf6662114573856a2ea921", size = 88083, upload-time = "2024-09-11T03:45:22.642Z" },
+    { url = "https://files.pythonhosted.org/packages/05/81/8c00fbeda05eff7fb226563f5ae6beb57da122b4729d5bb8961e9c0eaae3/cronexpr-0.30.0-cp313-cp313-musllinux_1_2_i686.whl", hash = "sha256:99aefb61623915657fe29db28d0b407e2f748776d25acf31d4d45b2289947f8f", size = 1159363, upload-time = "2024-09-11T03:45:23.949Z" },
+    { url = "https://files.pythonhosted.org/packages/ae/a6/44d54958f03a147a64169f534733f38e056bdad967e4ca38188b49f1ec97/cronexpr-0.30.0-cp313-cp313-musllinux_1_2_x86_64.whl", hash = "sha256:11ee708ff4da288a1e22757f4425e031809603efac6437fd33a4f91bff0993e9", size = 1062004, upload-time = "2024-09-11T03:45:25.815Z" },
+    { url = "https://files.pythonhosted.org/packages/bd/fa/c6cf80efef0e15e969c6aace48fcbee8c9bdfe51c14cb9a24f3a1f7e0a8d/cronexpr-0.30.0-cp313-cp313-win32.whl", hash = "sha256:591719b48ccf6c95b3aa784f3de9e0f9e8d720ed76d4ae52a39d94f173dd0413", size = 60132, upload-time = "2024-09-11T03:45:27.173Z" },
+    { url = "https://files.pythonhosted.org/packages/7b/74/721872a84b05e0a424ac24c2dce09571605d72c9b32947545bdaecbc43e5/cronexpr-0.30.0-cp313-cp313-win_amd64.whl", hash = "sha256:866aad7bd871bf9dec694f2b747861d3dc3681debc3bf2ef0bc78346418da574", size = 64461, upload-time = "2024-09-11T03:45:28.073Z" },
+]
+
+[[package]]
 name = "distro"
 version = "1.9.0"
 source = { registry = "https://pypi.org/simple" }
@@ -994,6 +1010,7 @@ dependencies = [
     { name = "aiosqlite" },
     { name = "aiosqlitepool" },
     { name = "anthropic" },
+    { name = "cronexpr" },
     { name = "dynaconf" },
     { name = "httpx" },
     { name = "litestar" },
@@ -1016,6 +1033,7 @@ requires-dist = [
     { name = "aiosqlite", specifier = ">=0.21.0" },
     { name = "aiosqlitepool", specifier = ">=1.0.0" },
     { name = "anthropic", specifier = ">=0.28.0" },
+    { name = "cronexpr", specifier = ">=0.30.0" },
     { name = "dynaconf", specifier = ">=3.2.11" },
     { name = "httpx", specifier = ">=0.28.1" },
     { name = "litestar", specifier = ">=2.16.0" },

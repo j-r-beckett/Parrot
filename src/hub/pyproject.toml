@@ -17,6 +17,7 @@ dependencies = [
     "dynaconf>=3.2.11",
     "aiosqlite>=0.21.0",
     "aiosqlitepool>=1.0.0",
+    "cronexpr>=0.30.0",
 ]
 
 [tool.pyrefly]
