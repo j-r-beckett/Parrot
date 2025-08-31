@@ -7,6 +7,7 @@ from typing import List, Optional, Tuple, cast
 from litestar.types.protocols import Logger
 from aiosqlitepool.protocols import Connection as PoolConnection
 from pydantic_ai.messages import ModelMessage, ModelMessagesTypeAdapter
+from config import settings
 
 
 async def init_database(db_pool: SQLiteConnectionPool) -> None:
@@ -81,11 +82,14 @@ async def save_conversation(
 
 
 async def create_db_pool(db_path: str, logger: Logger) -> SQLiteConnectionPool:
-    # Create directory if it doesn't exist
-    os.makedirs(os.path.dirname(db_path), exist_ok=True)
+    def sqlite_connection() -> aiosqlite.Connection:
+        if settings.ring == "local":
+            logger.info("Creating in-memory database connection")
+            return aiosqlite.connect("file::memory:?cache=shared", uri=True)
 
-    async def sqlite_connection() -> aiosqlite.Connection:
-        return await aiosqlite.connect(db_path)
+        logger.info("Creating connection to database at %s", db_path)
+        os.makedirs(os.path.dirname(db_path), exist_ok=True)
+        return aiosqlite.connect(db_path)
 
     db_pool = SQLiteConnectionPool(connection_factory=sqlite_connection)  # type: ignore
     await init_database(db_pool)

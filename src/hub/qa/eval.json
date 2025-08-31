@@ -1,0 +1,21 @@
+[
+  {
+    "id": "basic-greeting",
+    "prompts": [
+      "Hello"
+    ]
+  },
+  {
+    "id": "weather-query",
+    "prompts": [
+      "What's the weather like today in Seattle?",
+      "What about tomorrow?"
+    ]
+  },
+  {
+    "id": "navigation-query", 
+    "prompts": [
+      "How do I get to Central Park from the Empire State Building?"
+    ]
+  }
+]

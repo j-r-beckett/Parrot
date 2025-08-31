@@ -178,7 +178,9 @@ The hub automatically registers with sms-proxy on startup to receive:
 ## Monitoring
 
 - Health check endpoint at `/health`
-- Structured logging throughout the application
+- Structured logging throughout the application with correlation ID tracking
+- Log messages contain request correlation IDs for request tracing
+- Correlation IDs are propagated through the `X-Correlation-ID` header
 - Automatic sms-proxy re-registration every 45 seconds
 - Database initialization on startup
 

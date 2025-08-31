@@ -6,6 +6,7 @@ from aiosqlitepool import SQLiteConnectionPool
 import aiosqlite
 import logging
 from clients.cron_runner import CronRunner, cron_job
+from typing import Optional
 
 
 class CounterInput(BaseModel):
@@ -17,7 +18,7 @@ async def test_cron_runner_happy_path():
     # Setup
     # Use shared cache so all connections see the same in-memory database
     db_pool = SQLiteConnectionPool(
-        lambda: aiosqlite.connect("file::memory:?cache=shared", uri=True)
+        lambda: aiosqlite.connect("file::memory:?cache=shared", uri=True)  # type: ignore
     )
     logger = logging.getLogger(__name__)
 
@@ -26,7 +27,7 @@ async def test_cron_runner_happy_path():
     @cron_job("increment", 1.0)
     async def increment_job(
         job_id: str, schedule: str, input: CounterInput
-    ) -> CounterInput:
+    ) -> Optional[CounterInput]:
         new_value = input.value + 1
         results.append(new_value)
         if new_value >= 3:
