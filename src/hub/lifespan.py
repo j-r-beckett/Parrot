@@ -7,6 +7,7 @@ import httpx
 from config import settings
 from database.manager import create_db_pool
 from integrations.sms_proxy import create_sms_proxy_client, register_and_maintain
+from integrations.citi_bike import CitiBikeClient
 
 
 @asynccontextmanager
@@ -39,6 +40,11 @@ async def lifespan(app: Litestar) -> AsyncGenerator[None, None]:
 
     # Create clients
     sms_proxy_client = create_sms_proxy_client(settings.sms_proxy_url)
+    
+    # Create and initialize CitiBike client
+    citi_bike_httpx_client = CitiBikeClient.create_httpx_client()
+    citi_bike_client = CitiBikeClient(citi_bike_httpx_client, logger)
+    await citi_bike_client.__aenter__()
 
     # Start sms-proxy registration task
     if settings.ring != "local":
@@ -61,6 +67,7 @@ async def lifespan(app: Litestar) -> AsyncGenerator[None, None]:
     app.state.weather_httpx_client = weather_httpx_client
     app.state.nominatim_httpx_client = nominatim_httpx_client
     app.state.valhalla_httpx_client = valhalla_httpx_client
+    app.state.citi_bike_client = citi_bike_client
     app.state.db_pool = db_pool
 
     try:
@@ -79,4 +86,6 @@ async def lifespan(app: Litestar) -> AsyncGenerator[None, None]:
         await weather_httpx_client.aclose()
         await nominatim_httpx_client.aclose()
         await valhalla_httpx_client.aclose()
+        await citi_bike_client.__aexit__(None, None, None)
+        await citi_bike_httpx_client.aclose()
         await db_pool.close()

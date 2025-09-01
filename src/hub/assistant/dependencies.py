@@ -5,6 +5,7 @@ import httpx
 from functools import partial
 from litestar.datastructures import State
 import integrations.nominatim as nominatim_client
+from integrations.citi_bike import CitiBikeClient
 
 
 @dataclass
@@ -13,6 +14,7 @@ class AssistantDependencies:
     weather_client: httpx.AsyncClient
     nominatim_client: httpx.AsyncClient  
     valhalla_client: httpx.AsyncClient
+    citi_bike_client: CitiBikeClient
     geocode: Callable[[str], Awaitable[tuple[float, float]]]
     logger: Logger
 
@@ -26,6 +28,7 @@ def create_assistant_dependencies(state: State, logger: Logger) -> AssistantDepe
         weather_client=state.weather_httpx_client,
         nominatim_client=state.nominatim_httpx_client,
         valhalla_client=state.valhalla_httpx_client,
+        citi_bike_client=state.citi_bike_client,
         geocode=geocode,
         logger=logger,
     )

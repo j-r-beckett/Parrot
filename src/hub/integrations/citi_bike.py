@@ -40,7 +40,7 @@ class CitiBikeClient:
         self.station_info: List[StationInfo]
         self.status_rw_lock = RWLock()
         self.info_rw_lock = RWLock()
-        self._error_wait_seconds = 60
+        self._error_wait_seconds = 60.0
 
     @staticmethod
     def create_httpx_client(region: Literal["bkn", "bay"] = "bkn"):

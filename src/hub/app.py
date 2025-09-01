@@ -10,46 +10,35 @@ from litestar.logging import LoggingConfig
 from lifespan import lifespan
 from routes.health import health
 from routes.webhook import handle_sms_proxy_received, handle_sms_proxy_delivered
-from logging_middleware import CorrelationFilter, CorrelationFormatter, CorrelationMiddleware
+from logging_middleware import (
+    CorrelationFilter,
+    CorrelationFormatter,
+    CorrelationMiddleware,
+)
+from config import settings
 
 # Create correlation ID contextvar
-correlation_id_contextvar = ContextVar('correlation_id')
+correlation_id_contextvar = ContextVar("correlation_id")
 
 logging_config = LoggingConfig(
-    root={
-        "level": "INFO",
-        "handlers": ["queue_listener"],
-        "filters": ["correlation"]
-    },
+    root={"level": "INFO", "handlers": ["queue_listener"], "filters": ["correlation"]},
     formatters={
         "standard": {
             "()": CorrelationFormatter,
-            "format": "%(asctime)s - %(correlation_id)s - %(levelname)s - %(message)s"
+            "format": "%(asctime)s - %(correlation_id)s - %(levelname)s - %(message)s",
         }
     },
     filters={
         "correlation": {
             "()": CorrelationFilter,
-            "contextvar": correlation_id_contextvar
+            "contextvar": correlation_id_contextvar,
         }
     },
     loggers={
         # Ensure specific loggers also get the correlation filter
-        "httpx": {
-            "level": "INFO",
-            "filters": ["correlation"],
-            "propagate": True
-        },
-        "uvicorn": {
-            "level": "INFO", 
-            "filters": ["correlation"],
-            "propagate": True
-        },
-        "litestar": {
-            "level": "INFO",
-            "filters": ["correlation"],
-            "propagate": True
-        }
+        "httpx": {"level": "INFO", "filters": ["correlation"], "propagate": True},
+        "uvicorn": {"level": "INFO", "filters": ["correlation"], "propagate": True},
+        "litestar": {"level": "INFO", "filters": ["correlation"], "propagate": True},
     },
     log_exceptions="always",
 )
@@ -63,4 +52,5 @@ app = Litestar(
     lifespan=[lifespan],
     logging_config=logging_config,
     middleware=[CorrelationMiddleware(correlation_id_contextvar)],
+    debug=settings.ring == "local",
 )

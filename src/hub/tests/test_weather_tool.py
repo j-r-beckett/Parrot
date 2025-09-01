@@ -53,6 +53,7 @@ async def test_weather_tool_happy_path():
         weather_client=weather_client,
         nominatim_client=httpx.AsyncClient(),  # Won't be used
         valhalla_client=httpx.AsyncClient(),   # Won't be used
+        citi_bike_client=Mock(),  # type: ignore
         geocode=mock_geocode,
         logger=MockLogger(),
     )

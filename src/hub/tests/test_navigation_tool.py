@@ -54,6 +54,7 @@ async def test_navigation_tool_happy_path():
         weather_client=httpx.AsyncClient(),      # Won't be used
         nominatim_client=httpx.AsyncClient(),    # Won't be used
         valhalla_client=valhalla_client,
+        citi_bike_client=Mock(),  # type: ignore
         geocode=mock_geocode,
         logger=MockLogger(),
     )

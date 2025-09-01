@@ -30,6 +30,7 @@ async def test_datetime_tool_happy_path():
         weather_client=httpx.AsyncClient(),
         nominatim_client=httpx.AsyncClient(),
         valhalla_client=httpx.AsyncClient(),
+        citi_bike_client=Mock(),  # type: ignore
         geocode=mock_geocode,
         logger=MockLogger(),
     )
