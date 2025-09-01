@@ -29,5 +29,17 @@
     "prompts": [
       "Vegetarian quinoa recipe, with mushrooms"
     ]
-  }  
+  },
+  {
+    "id": "search.current_events",
+    "prompts": [
+      "Who's the leading candidate to be the next mayor of NYC?"
+    ]
+  },
+  {
+    "id": "search.movies",
+    "prompts": [
+      "Movies in theatres right now"
+    ]
+  }
 ]

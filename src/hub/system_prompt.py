@@ -1,4 +1,6 @@
 import os
+from datetime import datetime
+import pytz
 
 
 def prompt(model: str) -> str:
@@ -7,6 +9,12 @@ def prompt(model: str) -> str:
     with open(prompt_path, "r", encoding="utf-8") as f:
         content = f.read().strip()
     
+    # Get current date in Central timezone
+    central_tz = pytz.timezone('America/Chicago')
+    now = datetime.now(central_tz)
+    current_date = now.strftime("%A, %B %d, %Y")
+    
     content = content.replace("{{model}}", model)
+    content = content.replace("{{currentDate}}", current_date)
     
     return content

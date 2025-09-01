@@ -1,6 +1,6 @@
 from pydantic_ai import Agent
 from pydantic_ai.models.anthropic import AnthropicModelSettings
-from pydantic_ai.builtin_tools import WebSearchTool, CodeExecutionTool
+from pydantic_ai.builtin_tools import CodeExecutionTool
 from config import settings
 import system_prompt
 from .dependencies import AssistantDependencies
@@ -21,7 +21,7 @@ def create_assistant(
                 "budget_tokens": settings.llm.max_tokens // 2,
             },
         ),
-        builtin_tools=[WebSearchTool(), CodeExecutionTool()],
+        builtin_tools=[CodeExecutionTool()],
     )
 
     # Register tools
@@ -38,9 +38,11 @@ def register_assistant_tools(agent: Agent[AssistantDependencies, str]) -> None:
     from assistant.tools.navigation import register_navigation_tool
     from assistant.tools.citi_bike_tool import register_citi_bike_tool
     from assistant.tools.recipe import register_recipe_tool
+    from assistant.tools.search import register_search_tool
 
     register_weather_tool(agent)
     register_datetime_tool(agent)
     register_navigation_tool(agent)
     register_citi_bike_tool(agent)
     register_recipe_tool(agent)
+    register_search_tool(agent)
