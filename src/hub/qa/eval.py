@@ -10,6 +10,7 @@ This script:
 5. Handles errors gracefully, stopping multi-stage scenarios on first error
 """
 
+import argparse
 import asyncio
 import json
 import random
@@ -145,27 +146,37 @@ class ScenarioRunner:
 
 
 def wrap_text(text: str, width: int) -> List[str]:
-    """Wrap text to specified width, preserving words."""
+    """Wrap text to specified width, preserving words and newlines."""
     if not text:
         return [""]
     
-    words = text.split()
-    lines = []
-    current_line = ""
+    # Split by newlines first to preserve them
+    paragraphs = text.split('\n')
+    all_lines = []
     
-    for word in words:
-        if not current_line:
-            current_line = word
-        elif len(current_line) + 1 + len(word) <= width:
-            current_line += " " + word
-        else:
-            lines.append(current_line)
-            current_line = word
+    for paragraph in paragraphs:
+        if not paragraph.strip():
+            # Empty line - preserve it
+            all_lines.append("")
+            continue
+            
+        # Wrap this paragraph
+        words = paragraph.split()
+        current_line = ""
+        
+        for word in words:
+            if not current_line:
+                current_line = word
+            elif len(current_line) + 1 + len(word) <= width:
+                current_line += " " + word
+            else:
+                all_lines.append(current_line)
+                current_line = word
+        
+        if current_line:
+            all_lines.append(current_line)
     
-    if current_line:
-        lines.append(current_line)
-    
-    return lines
+    return all_lines
 
 
 def format_user_message(text: str) -> str:
@@ -189,19 +200,11 @@ def format_ai_message(text: str, is_error: bool = False) -> str:
         text = "Empty response"
         is_error = True
     
-    # For errors, remove newlines and truncate to 160 characters
-    if is_error:
-        text = text.replace('\n', ' ').replace('\r', ' ')
-        if len(text) > 160:
-            text = text[:160] + "..."
+    # For errors, truncate to 160 characters but preserve formatting
+    if is_error and len(text) > 160:
+        text = text[:160] + "..."
     
-    # For errors, don't respect word boundaries when wrapping
-    if is_error:
-        lines = []
-        for i in range(0, len(text), 50):
-            lines.append(text[i:i+50])
-    else:
-        lines = wrap_text(text, 50)
+    lines = wrap_text(text, 50)
     
     formatted_lines = []
     color_code = "\033[91m" if is_error else "\033[32m"  # red or standard green
@@ -211,6 +214,18 @@ def format_ai_message(text: str, is_error: bool = False) -> str:
         formatted_lines.append(colored)
     
     return "\n".join(formatted_lines)
+
+
+def filter_scenarios(scenarios: List[Dict[str, Any]], filter_text: Optional[str]) -> List[Dict[str, Any]]:
+    """Filter scenarios by case-insensitive contains match on scenario ID."""
+    if not filter_text:
+        return scenarios
+    
+    filter_lower = filter_text.lower()
+    return [
+        scenario for scenario in scenarios 
+        if filter_lower in scenario.get("id", "").lower()
+    ]
 
 
 def format_result(result: Dict[str, Any]) -> str:
@@ -245,6 +260,11 @@ def format_result(result: Dict[str, Any]) -> str:
 
 async def main():
     """Main evaluation function."""
+    # Parse command line arguments
+    parser = argparse.ArgumentParser(description="Run evaluation scenarios against the parrot hub server")
+    parser.add_argument("--filter", help="Filter scenarios by case-insensitive contains match on scenario ID")
+    args = parser.parse_args()
+    
     # Load scenarios
     scenarios_path = Path(__file__).parent / "scenarios.json"
     
@@ -254,14 +274,27 @@ async def main():
     
     try:
         with open(scenarios_path) as f:
-            scenarios = json.load(f)
+            all_scenarios = json.load(f)
     except json.JSONDecodeError as e:
         print(f"Error parsing scenarios.json: {e}")
         sys.exit(1)
     
-    if not scenarios:
+    if not all_scenarios:
         print("No scenarios found in scenarios.json")
         sys.exit(0)
+    
+    # Apply filter if specified
+    scenarios = filter_scenarios(all_scenarios, args.filter)
+    
+    if not scenarios:
+        if args.filter:
+            print(f"No scenarios match filter '{args.filter}'")
+        else:
+            print("No scenarios found")
+        sys.exit(0)
+    
+    if args.filter:
+        print(f"Running {len(scenarios)} scenario(s) matching filter '{args.filter}'...")
     
     async with ScenarioRunner() as runner:
         # Health check
@@ -270,7 +303,8 @@ async def main():
             sys.exit(1)
         
         # Run all scenarios concurrently
-        print(f"Running {len(scenarios)} scenario(s)...")
+        if not args.filter:
+            print(f"Running {len(scenarios)} scenario(s)...")
         
         # Create tasks for all scenarios
         tasks = [

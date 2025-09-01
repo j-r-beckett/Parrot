@@ -13,7 +13,7 @@
     ]
   },
   {
-    "id": "navigation", 
+    "id": "navigation.routable", 
     "prompts": [
       "How do I get to Central Park from the Empire State Building?"
     ]
@@ -23,6 +23,11 @@
     "prompts": [
       "How do I get to The Imaginary Pizza Place from Central Park?"
     ]
-  }
-  
+  },
+  {
+    "id": "cooking.recipe",
+    "prompts": [
+      "Baked chicken breast"
+    ]
+  }  
 ]

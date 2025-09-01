@@ -2,6 +2,7 @@ from pydantic_ai import Agent
 from pydantic_ai.models.anthropic import AnthropicModelSettings
 from pydantic_ai.builtin_tools import WebSearchTool, CodeExecutionTool
 from config import settings
+import system_prompt
 from .dependencies import AssistantDependencies
 
 
@@ -12,7 +13,7 @@ def create_assistant(
     agent = Agent(
         "anthropic:claude-sonnet-4-20250514",
         deps_type=dependencies_type,
-        system_prompt=settings.prompts.assistant,
+        system_prompt=system_prompt.prompt(settings.llm.model),
         model_settings=AnthropicModelSettings(
             max_tokens=settings.llm.max_tokens,
             anthropic_thinking={
