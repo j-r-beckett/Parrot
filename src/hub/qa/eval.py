@@ -64,12 +64,13 @@ class ScenarioRunner:
         self, 
         prompt: str, 
         phone_number: str, 
+        correlation_id: str,
         is_continuation: bool = False
-    ) -> Tuple[Optional[str], Optional[str], Optional[str], Optional[int]]:
+    ) -> Tuple[Optional[str], Optional[str], Optional[int]]:
         """
         Send a single prompt to the server.
         
-        Returns: (response_text, correlation_id, error_message, status_code)
+        Returns: (response_text, error_message, status_code)
         """
         # Add "! " prefix for conversation continuation
         message = f"! {prompt}" if is_continuation else prompt
@@ -79,19 +80,18 @@ class ScenarioRunner:
         try:
             response = await self.client.post(
                 f"{self.base_url}/webhook/sms-proxy/received",
-                json=payload
+                json=payload,
+                headers={"X-Correlation-ID": correlation_id}
             )
-            
-            correlation_id = response.headers.get("X-Correlation-ID", "N/A")
             
             if response.status_code >= 400:
                 error_msg = f"HTTP {response.status_code}: {response.text}"
-                return None, correlation_id, error_msg, response.status_code
+                return None, error_msg, response.status_code
             
-            return response.text, correlation_id, None, response.status_code
+            return response.text, None, response.status_code
             
         except httpx.RequestError as e:
-            return None, "N/A", str(e), None
+            return None, str(e), None
     
     async def run_scenario(
         self, 
@@ -106,11 +106,12 @@ class ScenarioRunner:
         scenario_id = scenario.get("id", f"scenario-{index}")
         prompts = scenario.get("prompts", [])
         phone_number = self.generate_phone_number()
+        correlation_id = str(uuid4())
         
         result = {
             "index": index,
             "id": scenario_id,
-            "phone_number": phone_number,
+            "correlation_id": correlation_id,
             "stages": [],
             "error": None
         }
@@ -118,16 +119,16 @@ class ScenarioRunner:
         for stage_idx, prompt in enumerate(prompts):
             is_continuation = stage_idx > 0
             
-            response_text, correlation_id, error_msg, status_code = await self.send_prompt(
+            response_text, error_msg, status_code = await self.send_prompt(
                 prompt, 
                 phone_number, 
+                correlation_id,
                 is_continuation
             )
             
             stage_result = {
                 "stage": stage_idx + 1,
                 "prompt": prompt,
-                "correlation_id": correlation_id,
                 "response": response_text,
                 "error": error_msg,
                 "status_code": status_code
@@ -149,35 +150,21 @@ def format_result(result: Dict[str, Any]) -> str:
     
     # Header
     lines.append("=" * 80)
-    lines.append(f"Scenario: {result['id']} (Index: {result['index']})")
-    lines.append(f"Phone: {result['phone_number']}")
-    
-    if result.get("error"):
-        lines.append(f"Status: FAILED - {result['error']}")
-    else:
-        lines.append(f"Status: COMPLETED all stages")
-    
+    lines.append(f"Scenario: {result['id']} | Correlation ID: {result['correlation_id']}")
     lines.append("-" * 80)
     
     # Stages
     for stage in result["stages"]:
         lines.append(f"\nStage {stage['stage']}:")
         lines.append(f"  Prompt: {stage['prompt']}")
-        lines.append(f"  Correlation ID: {stage['correlation_id']}")
         
         if stage['error']:
-            lines.append(f"  Status: FAILED")
-            lines.append(f"  Error: {stage['error']}")
+            lines.append(f"  ERROR: {stage['error']}")
         else:
-            lines.append(f"  Status: SUCCESS (HTTP {stage['status_code']})")
             if stage['response']:
-                # Truncate long responses
-                response = stage['response']
-                if len(response) > 200:
-                    response = response[:197] + "..."
-                lines.append(f"  Response: {response}")
+                lines.append(f"  Response: {stage['response']}")
     
-    return "\n".join(lines)
+    return "\n".join(lines) + "\n"
 
 
 async def main():
@@ -200,21 +187,14 @@ async def main():
         print("No scenarios found in scenarios.json")
         sys.exit(0)
     
-    print(f"Loaded {len(scenarios)} scenario(s)")
-    print()
-    
     async with ScenarioRunner() as runner:
         # Health check
-        print("Checking server health...")
         if not await runner.check_health():
             print("Server is not healthy. Please ensure the server is running on http://127.0.0.1:8000")
             sys.exit(1)
-        print("Server is healthy")
-        print()
         
         # Run all scenarios concurrently
-        print(f"Running {len(scenarios)} scenario(s) concurrently...")
-        print()
+        print(f"Running {len(scenarios)} scenario(s)...")
         
         # Create tasks for all scenarios
         tasks = [
@@ -226,11 +206,8 @@ async def main():
         results = await asyncio.gather(*tasks, return_exceptions=True)
         
         # Process results in order
-        print("\n" + "=" * 80)
-        print("RESULTS (displayed in scenario order)")
-        print("=" * 80 + "\n")
+        print()
         
-        success_count = 0
         failure_count = 0
         
         for result in results:
@@ -241,16 +218,9 @@ async def main():
                 print(format_result(result))
                 if result.get("error"):
                     failure_count += 1
-                else:
-                    success_count += 1
         
-        # Summary
-        print("\n" + "=" * 80)
-        print("SUMMARY")
         print("=" * 80)
-        print(f"Successful scenarios: {success_count}")
-        print(f"Failed scenarios: {failure_count}")
-        print(f"Total scenarios: {len(scenarios)}")
+        print("All scenarios completed.")
         
         # Exit with error code if any scenarios failed
         if failure_count > 0:
