@@ -144,25 +144,101 @@ class ScenarioRunner:
         return result
 
 
+def wrap_text(text: str, width: int) -> List[str]:
+    """Wrap text to specified width, preserving words."""
+    if not text:
+        return [""]
+    
+    words = text.split()
+    lines = []
+    current_line = ""
+    
+    for word in words:
+        if not current_line:
+            current_line = word
+        elif len(current_line) + 1 + len(word) <= width:
+            current_line += " " + word
+        else:
+            lines.append(current_line)
+            current_line = word
+    
+    if current_line:
+        lines.append(current_line)
+    
+    return lines
+
+
+def format_user_message(text: str) -> str:
+    """Format user message: blue, right-aligned with 10 char offset."""
+    lines = wrap_text(text, 50)  # Full 50 char width for wrapping
+    formatted_lines = []
+    
+    for line in lines:
+        # Right-justify within 50 chars, then add 10 char offset
+        right_justified = line.rjust(50)
+        shifted = " " * 10 + right_justified
+        colored = f"\033[94m{shifted}\033[0m"
+        formatted_lines.append(colored)
+    
+    return "\n".join(formatted_lines)
+
+
+def format_ai_message(text: str, is_error: bool = False) -> str:
+    """Format AI message: grey (or red for errors), left-aligned."""
+    if not text:
+        text = "Empty response"
+        is_error = True
+    
+    # For errors, remove newlines and truncate to 160 characters
+    if is_error:
+        text = text.replace('\n', ' ').replace('\r', ' ')
+        if len(text) > 160:
+            text = text[:160] + "..."
+    
+    # For errors, don't respect word boundaries when wrapping
+    if is_error:
+        lines = []
+        for i in range(0, len(text), 50):
+            lines.append(text[i:i+50])
+    else:
+        lines = wrap_text(text, 50)
+    
+    formatted_lines = []
+    color_code = "\033[91m" if is_error else "\033[32m"  # red or standard green
+    
+    for line in lines:
+        colored = f"{color_code}{line}\033[0m"
+        formatted_lines.append(colored)
+    
+    return "\n".join(formatted_lines)
+
+
 def format_result(result: Dict[str, Any]) -> str:
-    """Format a scenario result for display."""
+    """Format a scenario result as SMS conversation."""
     lines = []
     
-    # Header
-    lines.append("=" * 80)
-    lines.append(f"Scenario: {result['id']} | Correlation ID: {result['correlation_id']}")
-    lines.append("-" * 80)
+    # Header with clean divider
+    lines.append(f"── {result['id']} ── {result['correlation_id']} ──")
     
-    # Stages
+    # SMS conversation
     for stage in result["stages"]:
-        lines.append(f"\nStage {stage['stage']}:")
-        lines.append(f"  Prompt: {stage['prompt']}")
+        # Add some spacing between message pairs
+        lines.append("")
         
+        # User message (right-aligned, blue)
+        user_msg = format_user_message(stage['prompt'])
+        lines.append(user_msg)
+        
+        # Small gap between user and AI message
+        lines.append("")
+        
+        # AI response (left-aligned, grey or red for errors)
         if stage['error']:
-            lines.append(f"  ERROR: {stage['error']}")
+            ai_msg = format_ai_message(stage['error'], is_error=True)
         else:
-            if stage['response']:
-                lines.append(f"  Response: {stage['response']}")
+            ai_msg = format_ai_message(stage.get('response', ''), is_error=False)
+        
+        lines.append(ai_msg)
     
     return "\n".join(lines) + "\n"
 
@@ -219,7 +295,6 @@ async def main():
                 if result.get("error"):
                     failure_count += 1
         
-        print("=" * 80)
         print("All scenarios completed.")
         
         # Exit with error code if any scenarios failed
