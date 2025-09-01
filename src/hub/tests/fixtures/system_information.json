@@ -1,0 +1,14 @@
+{
+    "data": {
+        "operator": "Lyft",
+        "name": "Bay Wheels",
+        "purchase_url": "https://account.baywheels.com/access-plans",
+        "timezone": "America/Los_Angeles",
+        "language": "en",
+        "url": "https://www.lyft.com/bikes/bay-wheels",
+        "system_id": "lyft_bay"
+    },
+    "last_updated": 1756691963,
+    "ttl": 60,
+    "version": "2.3"
+}
