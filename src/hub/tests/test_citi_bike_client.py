@@ -277,7 +277,7 @@ async def test_update_station_info():
         assert next_update_time.tzinfo == timezone.utc
         
         # Verify data was stored in client
-        assert client._station_info == stations
+        assert client.station_info == stations
 
 
 @pytest.mark.asyncio
@@ -338,7 +338,7 @@ async def test_update_station_status():
         assert next_update_time.tzinfo == timezone.utc
         
         # Verify data was stored in client
-        assert client._station_status == stations
+        assert client.station_status == stations
 
 
 @pytest.mark.asyncio
@@ -371,3 +371,61 @@ async def test_get_system_info():
         # Verify results
         assert str(timezone_info) == "America/New_York"
         assert version == 2.3
+
+
+@pytest.mark.asyncio
+async def test_citi_bike_client_with_fixtures():
+    """Test CitiBikeClient with real fixture data"""
+    import json
+    from pathlib import Path
+    
+    # Load fixture files
+    fixture_dir = Path(__file__).parent / "fixtures"
+    
+    with open(fixture_dir / "system_information.json") as f:
+        system_info = json.load(f)
+    
+    with open(fixture_dir / "station_information.json") as f:
+        station_info = json.load(f)
+        
+    with open(fixture_dir / "station_status.json") as f:
+        station_status = json.load(f)
+    
+    def mock_handler(request: httpx.Request):
+        if "/system_information.json" in str(request.url):
+            return httpx.Response(200, json=system_info)
+        elif "/station_information.json" in str(request.url):
+            return httpx.Response(200, json=station_info)
+        elif "/station_status.json" in str(request.url):
+            return httpx.Response(200, json=station_status)
+        else:
+            return httpx.Response(404)
+    
+    transport = httpx.MockTransport(mock_handler)
+    async with httpx.AsyncClient(transport=transport, base_url="http://test") as httpx_client:
+        logger = MockLogger()
+        
+        async with CitiBikeClient(httpx_client, logger) as client:
+            client._error_wait_seconds = 0.01
+            
+            # Get stations using real fixture data
+            stations = await client.get_stations()
+            
+            # Verify we got a reasonable number of stations
+            assert len(stations) > 0
+            print(f"Found {len(stations)} stations from fixture data")
+            
+            # Verify all stations have proper structure and NYC coordinates
+            for i, station in enumerate(stations):
+                assert hasattr(station, 'lat'), f"Station {i} missing lat"
+                assert hasattr(station, 'lon'), f"Station {i} missing lon"
+                assert hasattr(station, 'num_bikes'), f"Station {i} missing num_bikes"
+                assert hasattr(station, 'num_ebikes'), f"Station {i} missing num_ebikes"
+                
+                # Verify coordinates are in NYC range
+                assert 40.0 < station.lat < 41.0, f"Station {i} lat {station.lat} not in NYC range"
+                assert -75.0 < station.lon < -73.0, f"Station {i} lon {station.lon} not in NYC range"
+                
+                # Verify bike counts are non-negative
+                assert station.num_bikes >= 0, f"Station {i} has negative bikes: {station.num_bikes}"
+                assert station.num_ebikes >= 0, f"Station {i} has negative ebikes: {station.num_ebikes}"

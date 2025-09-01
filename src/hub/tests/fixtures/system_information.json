@@ -1,14 +1,15 @@
 {
     "data": {
+        "timezone": "America/New_York",
+        "url": "http://www.citibikenyc.com",
+        "system_id": "lyft_nyc",
+        "start_date": "2013-05-01",
         "operator": "Lyft",
-        "name": "Bay Wheels",
-        "purchase_url": "https://account.baywheels.com/access-plans",
-        "timezone": "America/Los_Angeles",
-        "language": "en",
-        "url": "https://www.lyft.com/bikes/bay-wheels",
-        "system_id": "lyft_bay"
+        "name": "Citi Bike",
+        "purchase_url": "https://account.citibikenyc.com/access-plans",
+        "language": "en"
     },
-    "last_updated": 1756691963,
+    "last_updated": 1756696043,
     "ttl": 60,
     "version": "2.3"
 }

@@ -1,7 +1,7 @@
 import asyncio
 import httpx
 from pydantic import BaseModel
-from typing import List, Callable, Awaitable, Tuple, Self
+from typing import List, Callable, Awaitable, Tuple, Self, Literal
 from datetime import datetime, timedelta, timezone
 from zoneinfo import ZoneInfo
 from dataclasses import dataclass
@@ -43,9 +43,9 @@ class CitiBikeClient:
         self._error_wait_seconds = 60
 
     @staticmethod
-    def create_httpx_client():
+    def create_httpx_client(region: Literal["bkn", "bay"] = "bkn"):
         return httpx.AsyncClient(
-            base_url=f"https://gbfs.lyft.com/gbfs/{CitiBikeClient.api_version}/bay/en",
+            base_url=f"https://gbfs.lyft.com/gbfs/{CitiBikeClient.api_version}/{region}/en",
             timeout=10.0,
             follow_redirects=True,
         )
@@ -58,13 +58,13 @@ class CitiBikeClient:
                 f"API version mismatch: expected {CitiBikeClient.api_version}, got {version}"
             )
 
-        self.station_status, _ = await self._updatestation_status()
-        self.station_info, _ = await self._updatestation_info()
+        self.station_status, _ = await self._update_station_status()
+        self.station_info, _ = await self._update_station_info()
 
         self.status_sync_task = asyncio.create_task(
-            self._sync(self._updatestation_status)
+            self._sync(self._update_station_status)
         )
-        self.info_sync_task = asyncio.create_task(self._sync(self._updatestation_info))
+        self.info_sync_task = asyncio.create_task(self._sync(self._update_station_info))
 
         return self
 
@@ -117,7 +117,7 @@ class CitiBikeClient:
                 except asyncio.CancelledError:
                     break
 
-    async def _updatestation_info(self) -> Tuple[List[StationInfo], datetime]:
+    async def _update_station_info(self) -> Tuple[List[StationInfo], datetime]:
         response = await self.httpx_client.get("/station_information.json")
         response.raise_for_status()
         data = response.json()
@@ -136,7 +136,7 @@ class CitiBikeClient:
 
         return stations, next_update_time
 
-    async def _updatestation_status(self) -> Tuple[List[StationStatus], datetime]:
+    async def _update_station_status(self) -> Tuple[List[StationStatus], datetime]:
         response = await self.httpx_client.get("/station_status.json")
         response.raise_for_status()
         data = response.json()
