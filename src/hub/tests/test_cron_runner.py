@@ -5,7 +5,7 @@ from pydantic import BaseModel
 from aiosqlitepool import SQLiteConnectionPool
 import aiosqlite
 import logging
-from clients.cron_runner import CronRunner, cron_job
+from integrations.cron_runner import CronRunner, cron_job
 from typing import Optional
 
 

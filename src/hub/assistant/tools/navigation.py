@@ -2,7 +2,7 @@ from typing import Literal
 from pydantic_ai import Agent
 from pydantic_ai.tools import RunContext
 from assistant.dependencies import AssistantDependencies
-import clients.valhalla as valhalla_client
+import integrations.valhalla as valhalla_client
 
 
 def register_navigation_tool(agent: Agent[AssistantDependencies, str]) -> None:

@@ -4,7 +4,7 @@ from litestar.types.protocols import Logger
 import httpx
 from functools import partial
 from litestar.datastructures import State
-import clients.nominatim as nominatim_client
+import integrations.nominatim as nominatim_client
 
 
 @dataclass

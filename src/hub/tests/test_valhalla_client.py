@@ -4,8 +4,8 @@ import httpx
 from pathlib import Path
 from typing import cast
 
-import clients.valhalla as valhalla_client
-from clients.valhalla import TravelMode
+import integrations.valhalla as valhalla_client
+from integrations.valhalla import TravelMode
 
 
 @pytest.fixture

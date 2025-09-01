@@ -6,7 +6,7 @@ import httpx
 
 from config import settings
 from database.manager import create_db_pool
-from clients.sms_proxy import create_sms_proxy_client, register_and_maintain
+from integrations.sms_proxy import create_sms_proxy_client, register_and_maintain
 
 
 @asynccontextmanager

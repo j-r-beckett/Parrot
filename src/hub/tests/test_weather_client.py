@@ -3,7 +3,7 @@ import pytest
 import httpx
 from pathlib import Path
 
-import clients.weather as weather_client
+import integrations.weather as weather_client
 from tests.utils import MockLogger
 
 

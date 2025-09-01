@@ -1,4 +1,4 @@
-import clients.weather as weather_client
+import integrations.weather as weather_client
 from pydantic_ai import Agent
 from pydantic_ai.tools import RunContext
 from assistant.dependencies import AssistantDependencies

@@ -1,7 +1,7 @@
 from litestar import post, Request
 from litestar.datastructures import State
 from schemas.sms import SmsReceived, SmsDelivered
-from clients.sms_proxy import send_sms as send_sms_sms_proxy
+from integrations.sms_proxy import send_sms as send_sms_sms_proxy
 from assistant.agent import create_assistant
 from assistant.dependencies import create_assistant_dependencies
 from config import settings
