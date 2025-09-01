@@ -8,26 +8,25 @@ from litestar.datastructures import MutableScopeHeaders
 
 class CorrelationFormatter(logging.Formatter):
     """Formatter that safely handles missing correlation_id fields."""
-    
+
     def format(self, record: logging.LogRecord) -> str:
         # Ensure correlation_id exists, fallback to 'system' if not set
-        if not hasattr(record, 'correlation_id'):
-            record.correlation_id = 'system'
+        if not hasattr(record, "correlation_id"):
+            record.correlation_id = "system"
         return super().format(record)
 
 
 class CorrelationFilter(logging.Filter):
     """Logging filter that adds correlation ID to log records at creation time."""
-    
+
     def __init__(self, contextvar: ContextVar[str]):
         super().__init__()
         self.contextvar = contextvar
-    
+
     def filter(self, record: logging.LogRecord) -> bool:
         # Add correlation_id when record is created (in request thread)
-        record.correlation_id = self.contextvar.get('system')
+        record.correlation_id = self.contextvar.get("system")
         return True
-
 
 
 class CorrelationMiddleware(ASGIMiddleware):
@@ -37,7 +36,9 @@ class CorrelationMiddleware(ASGIMiddleware):
         super().__init__()
         self.contextvar = contextvar
 
-    async def handle(self, scope: Scope, receive: Receive, send: Send, next_app: ASGIApp) -> None:
+    async def handle(
+        self, scope: Scope, receive: Receive, send: Send, next_app: ASGIApp
+    ) -> None:
         if scope["type"] != "http":
             await next_app(scope, receive, send)
             return

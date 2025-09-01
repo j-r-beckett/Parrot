@@ -17,7 +17,7 @@ async def handle_sms_proxy_received(
 
     # Create assistant dependencies
     deps = create_assistant_dependencies(state, request.logger)
-    
+
     # Create assistant
     assistant = create_assistant()
 
@@ -35,18 +35,14 @@ async def handle_sms_proxy_received(
         conversation_id = None
 
     # Run assistant
-    result = await assistant.run(
-        message,
-        deps=deps,
-        message_history=message_history
-    )
+    result = await assistant.run(message, deps=deps, message_history=message_history)
 
     # Save conversation using PydanticAI's built-in JSON serialization
     await save_conversation(
         state.db_pool,
         data.payload.phone_number,
-        result.new_messages_json().decode('utf-8'),
-        conversation_id
+        result.new_messages_json().decode("utf-8"),
+        conversation_id,
     )
 
     # If we're running locally w/ no sms-proxy, just return

@@ -6,7 +6,7 @@ from assistant.dependencies import AssistantDependencies
 
 def register_weather_tool(agent: Agent[AssistantDependencies, str]) -> None:
     """Register weather tool on the agent."""
-    
+
     @agent.tool
     async def forecast(ctx: RunContext[AssistantDependencies], location: str) -> str:
         """Returns a weather forecast formatted as JSON."""

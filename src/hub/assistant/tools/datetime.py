@@ -13,7 +13,9 @@ def register_datetime_tool(agent: Agent[AssistantDependencies, str]) -> None:
     """Register datetime tool on the agent."""
 
     @agent.tool
-    async def get_current_datetime(ctx: RunContext[AssistantDependencies], location: str) -> str:
+    async def get_current_datetime(
+        ctx: RunContext[AssistantDependencies], location: str
+    ) -> str:
         """Get the current date and time for a location.
 
         Args:

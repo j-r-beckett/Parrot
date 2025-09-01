@@ -40,7 +40,7 @@ async def lifespan(app: Litestar) -> AsyncGenerator[None, None]:
 
     # Create clients
     sms_proxy_client = create_sms_proxy_client(settings.sms_proxy_url)
-    
+
     # Create and initialize CitiBike client
     citi_bike_httpx_client = CitiBikeClient.create_httpx_client()
     citi_bike_client = CitiBikeClient(citi_bike_httpx_client, logger)

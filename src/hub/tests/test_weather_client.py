@@ -30,8 +30,6 @@ def twelve_hour_forecast_response(fixture_dir):
         return json.load(f)
 
 
-
-
 @pytest.mark.asyncio
 async def test_hourly_forecast_happy_path(points_response, hourly_forecast_response):
     """Test hourly forecast with successful API responses"""

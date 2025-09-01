@@ -7,7 +7,7 @@ import integrations.valhalla as valhalla_client
 
 def register_navigation_tool(agent: Agent[AssistantDependencies, str]) -> None:
     """Register navigation tool on the agent."""
-    
+
     @agent.tool
     async def navigate(
         ctx: RunContext[AssistantDependencies],
