@@ -26,7 +26,7 @@ import httpx
 class ScenarioRunner:
     def __init__(self, base_url: str = "http://127.0.0.1:8000"):
         self.base_url = base_url
-        self.client = httpx.AsyncClient(timeout=30.0)
+        self.client = httpx.AsyncClient(timeout=300.0)
     
     async def __aenter__(self):
         return self

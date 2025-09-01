@@ -37,8 +37,10 @@ def register_assistant_tools(agent: Agent[AssistantDependencies, str]) -> None:
     from assistant.tools.datetime import register_datetime_tool
     from assistant.tools.navigation import register_navigation_tool
     from assistant.tools.citi_bike_tool import register_citi_bike_tool
+    from assistant.tools.recipe import register_recipe_tool
 
     register_weather_tool(agent)
     register_datetime_tool(agent)
     register_navigation_tool(agent)
     register_citi_bike_tool(agent)
+    register_recipe_tool(agent)
