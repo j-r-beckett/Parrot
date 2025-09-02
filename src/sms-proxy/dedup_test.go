@@ -12,7 +12,7 @@ import (
 func TestMessageCacheDeduplication(t *testing.T) {
 	// Redirect log output to discard for quiet test runs
 	log.SetOutput(ioutil.Discard)
-	
+
 	cache := NewMessageCache()
 
 	// First message should not be seen
@@ -35,7 +35,7 @@ func TestMessageCacheDeduplication(t *testing.T) {
 func TestMessageCacheCleanup(t *testing.T) {
 	// Redirect log output to discard for quiet test runs
 	log.SetOutput(ioutil.Discard)
-	
+
 	cache := NewMessageCache()
 
 	// Add a message
@@ -59,7 +59,7 @@ func TestMessageCacheCleanup(t *testing.T) {
 func TestWebhookDeduplication(t *testing.T) {
 	// Redirect log output to discard for quiet test runs
 	log.SetOutput(ioutil.Discard)
-	
+
 	cm := NewClientManager()
 	am, _ := NewAllowlistManager(":memory:")
 	mc := NewMessageCache()
@@ -105,7 +105,7 @@ func TestWebhookDeduplication(t *testing.T) {
 func TestWebhookDeduplicationDifferentEventTypes(t *testing.T) {
 	// Redirect log output to discard for quiet test runs
 	log.SetOutput(ioutil.Discard)
-	
+
 	cm := NewClientManager()
 	am, _ := NewAllowlistManager(":memory:")
 	mc := NewMessageCache()

@@ -49,7 +49,6 @@ func main() {
 	flag.StringVar(&port, "port", "", "Port to bind to (required)")
 	flag.StringVar(&privateIP, "private-ip", "", "Private IP address to restrict API access to (required)")
 	flag.Parse()
-	log.Printf("DEBUG: After parse, password flag = %q", passwordArg)
 
 	// Validate required arguments
 	if port == "" {
