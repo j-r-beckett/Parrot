@@ -8,7 +8,7 @@ from litestar.datastructures import State
 import routes.webhook
 from routes.webhook import handle_sms_proxy_received
 from schemas.sms import SmsReceived, SmsReceivedPayload
-from database.manager import create_db_pool, save_conversation, load_last_conversation
+from database.manager import create_db_pool, save_conversation, load_recent_messages
 from pydantic_ai.messages import (
     UserPromptPart,
     ModelRequest,
@@ -67,345 +67,114 @@ async def _cleanup_test_db_and_mocks(db_path, db_pool, originals):
 
 
 @pytest.mark.asyncio
-async def test_new_conversation_first_time():
-    """Test starting a new conversation when user has no previous conversations."""
+async def test_memory_depth_limit():
+    """Test that memory_depth=2 only remembers the most recent 2 interactions."""
     db_path, db_pool, mock_assistant, originals = await _setup_test_db_and_mocks()
 
     try:
-        # Mock assistant.run for first-time user
-        mock_result = Mock()
-        mock_result.output = "Hello! How can I help you?"
-        mock_messages = [
-            ModelRequest(
-                parts=[
-                    SystemPromptPart(content="You are a helpful assistant."),
-                    UserPromptPart(content="Hello"),
-                ]
-            ),
-            ModelResponse(parts=[TextPart(content="Hello! How can I help you?")]),
-        ]
-        mock_result.new_messages_json.return_value = ModelMessagesTypeAdapter.dump_json(
-            mock_messages
-        )
-        mock_assistant.run = AsyncMock(return_value=mock_result)
+        # Mock settings.memory_depth for this test
+        import routes.webhook
+        original_settings = routes.webhook.settings
+        mock_settings = Mock()
+        mock_settings.memory_depth = 2
+        mock_settings.ring = "local"
+        routes.webhook.settings = mock_settings
 
-        # Create state and SMS payload
         state = Mock(spec=State)
         state.db_pool = db_pool
 
-        sms_data = SmsReceived(
+        # First interaction
+        mock_result1 = Mock()
+        mock_result1.output = "Response A"
+        mock_result1.new_messages_json.return_value = ModelMessagesTypeAdapter.dump_json([
+            ModelRequest(parts=[UserPromptPart(content="Message A")]),
+            ModelResponse(parts=[TextPart(content="Response A")]),
+        ])
+        mock_assistant.run = AsyncMock(return_value=mock_result1)
+
+        sms_data1 = SmsReceived(
             device_id="test-device",
-            id="test-webhook-123",
+            id="test-1", 
             payload=SmsReceivedPayload(
                 phone_number="+15551234567",
-                message="Hello",
+                message="Message A",
                 received_at="2025-08-29T06:20:00Z",
-                message_id="msg-123",
+                message_id="msg-1",
             ),
         )
 
-        # Call webhook handler
-        result = await handle_sms_proxy_received.fn(
-            request=MockRequest(), state=state, data=sms_data
-        )
+        await handle_sms_proxy_received.fn(request=MockRequest(), state=state, data=sms_data1)
 
-        # Verify response
-        assert result == "Hello! How can I help you?"
+        # Verify first interaction is in database
+        messages = await load_recent_messages(db_pool, "+15551234567", 2)
+        assert len(messages) == 2
+        assert messages[0].parts[0].content == "Message A"
+        assert messages[1].parts[0].content == "Response A"
 
-        # Verify assistant.run was called with empty history
-        mock_assistant.run.assert_called_once()
-        call_args = mock_assistant.run.call_args
-        assert call_args[0][0] == "Hello"
-        assert call_args[1]["message_history"] == []
+        # Second interaction
+        mock_result2 = Mock()
+        mock_result2.output = "Response B"
+        mock_result2.new_messages_json.return_value = ModelMessagesTypeAdapter.dump_json([
+            ModelRequest(parts=[UserPromptPart(content="Message B")]),
+            ModelResponse(parts=[TextPart(content="Response B")]),
+        ])
+        mock_assistant.run = AsyncMock(return_value=mock_result2)
 
-        # Verify conversation was saved to database
-        messages, conversation_id = await load_last_conversation(
-            db_pool, "+15551234567"
-        )
-        assert len(messages) == 2  # Request + response
-        assert conversation_id is not None
-
-        # Verify message content
-        assert isinstance(messages[0], ModelRequest)
-        assert len(messages[0].parts) == 2  # System + user
-        assert messages[0].parts[0].content == "You are a helpful assistant."
-        assert messages[0].parts[1].content == "Hello"
-
-        assert isinstance(messages[1], ModelResponse)
-        assert (
-            isinstance(messages[1].parts[0], TextPart)
-            and messages[1].parts[0].content == "Hello! How can I help you?"
-        )
-
-    finally:
-        await _cleanup_test_db_and_mocks(db_path, db_pool, originals)
-
-
-@pytest.mark.asyncio
-async def test_new_conversation_after_previous():
-    """Test starting a new conversation when user has had previous conversations."""
-    db_path, db_pool, mock_assistant, originals = await _setup_test_db_and_mocks()
-
-    try:
-        # Pre-populate database with old conversation (different ID)
-        old_conversation_id = str(uuid.uuid4())
-        old_messages = [
-            ModelRequest(
-                parts=[
-                    SystemPromptPart(content="You are a helpful assistant."),
-                    UserPromptPart(content="Old question"),
-                ]
-            ),
-            ModelResponse(parts=[TextPart(content="Old answer")]),
-        ]
-        old_messages_json = ModelMessagesTypeAdapter.dump_json(old_messages).decode(
-            "utf-8"
-        )
-        await save_conversation(
-            db_pool, "+15551234567", old_messages_json, old_conversation_id
-        )
-
-        # Mock assistant.run for new conversation (without ! prefix)
-        mock_result = Mock()
-        mock_result.output = "Hello again! How can I help?"
-        mock_messages = [
-            ModelRequest(
-                parts=[
-                    SystemPromptPart(content="You are a helpful assistant."),
-                    UserPromptPart(content="New question"),
-                ]
-            ),
-            ModelResponse(parts=[TextPart(content="Hello again! How can I help?")]),
-        ]
-        mock_result.new_messages_json.return_value = ModelMessagesTypeAdapter.dump_json(
-            mock_messages
-        )
-        mock_assistant.run = AsyncMock(return_value=mock_result)
-
-        # Create state and SMS payload (no ! prefix)
-        state = Mock(spec=State)
-        state.db_pool = db_pool
-
-        sms_data = SmsReceived(
+        sms_data2 = SmsReceived(
             device_id="test-device",
-            id="test-webhook-new",
+            id="test-2",
             payload=SmsReceivedPayload(
-                phone_number="+15551234567",
-                message="New question",
+                phone_number="+15551234567", 
+                message="Message B",
+                received_at="2025-08-29T06:21:00Z",
+                message_id="msg-2",
+            ),
+        )
+
+        await handle_sms_proxy_received.fn(request=MockRequest(), state=state, data=sms_data2)
+        
+        # Verify both interactions are returned (memory_depth=2)
+        messages = await load_recent_messages(db_pool, "+15551234567", 2)
+        assert len(messages) == 4  # 2 interactions * 2 messages each
+        assert messages[0].parts[0].content == "Message A"
+        assert messages[1].parts[0].content == "Response A"
+        assert messages[2].parts[0].content == "Message B"
+        assert messages[3].parts[0].content == "Response B"
+
+        # Third interaction
+        mock_result3 = Mock()
+        mock_result3.output = "Response C"
+        mock_result3.new_messages_json.return_value = ModelMessagesTypeAdapter.dump_json([
+            ModelRequest(parts=[UserPromptPart(content="Message C")]),
+            ModelResponse(parts=[TextPart(content="Response C")]),
+        ])
+        mock_assistant.run = AsyncMock(return_value=mock_result3)
+
+        sms_data3 = SmsReceived(
+            device_id="test-device",
+            id="test-3",
+            payload=SmsReceivedPayload(
+                phone_number="+15551234567", 
+                message="Message C",
                 received_at="2025-08-29T06:22:00Z",
-                message_id="msg-new",
+                message_id="msg-3",
             ),
         )
 
-        # Call webhook handler
-        result = await handle_sms_proxy_received.fn(
-            request=MockRequest(), state=state, data=sms_data
-        )
-
-        # Verify response
-        assert result == "Hello again! How can I help?"
-
-        # Verify assistant.run was called with empty history (new conversation)
-        mock_assistant.run.assert_called_once()
-        call_args = mock_assistant.run.call_args
-        assert call_args[0][0] == "New question"
-        assert (
-            call_args[1]["message_history"] == []
-        )  # Should be empty for new conversation
-
-        # Verify new conversation was saved to database
-        messages, conversation_id = await load_last_conversation(
-            db_pool, "+15551234567"
-        )
-        assert len(messages) == 2  # Should have new conversation (request + response)
-        assert (
-            conversation_id != old_conversation_id
-        )  # Should be different conversation
-
-        # Verify new conversation content
-        assert isinstance(messages[0], ModelRequest)
-        assert len(messages[0].parts) == 2  # System + user
-        assert messages[0].parts[1].content == "New question"
-
-        assert isinstance(messages[1], ModelResponse)
-        assert (
-            isinstance(messages[1].parts[0], TextPart)
-            and messages[1].parts[0].content == "Hello again! How can I help?"
-        )
+        await handle_sms_proxy_received.fn(request=MockRequest(), state=state, data=sms_data3)
+        
+        # Verify only last 2 interactions are returned (memory_depth=2)
+        messages = await load_recent_messages(db_pool, "+15551234567", 2)
+        assert len(messages) == 4  # 2 interactions * 2 messages each
+        assert messages[0].parts[0].content == "Message B"
+        assert messages[1].parts[0].content == "Response B"
+        assert messages[2].parts[0].content == "Message C"
+        assert messages[3].parts[0].content == "Response C"
+        # First interaction should not be returned
+        assert not any("Message A" in str(msg) for msg in messages)
+        assert not any("Response A" in str(msg) for msg in messages)
 
     finally:
-        await _cleanup_test_db_and_mocks(db_path, db_pool, originals)
-
-
-@pytest.mark.asyncio
-async def test_continue_conversation_no_history():
-    """Test attempting to continue a conversation when user has no previous conversations."""
-    db_path, db_pool, mock_assistant, originals = await _setup_test_db_and_mocks()
-
-    try:
-        # Mock assistant.run - when no history is found, should start new conversation
-        mock_result = Mock()
-        mock_result.output = "I don't have previous context, but let me help!"
-        mock_messages = [
-            ModelRequest(
-                parts=[
-                    SystemPromptPart(content="You are a helpful assistant."),
-                    UserPromptPart(content="Continue from before"),
-                ]
-            ),
-            ModelResponse(
-                parts=[
-                    TextPart(content="I don't have previous context, but let me help!")
-                ]
-            ),
-        ]
-        mock_result.new_messages_json.return_value = ModelMessagesTypeAdapter.dump_json(
-            mock_messages
-        )
-        mock_assistant.run = AsyncMock(return_value=mock_result)
-
-        # Create state and SMS payload with ! prefix but no history
-        state = Mock(spec=State)
-        state.db_pool = db_pool
-
-        sms_data = SmsReceived(
-            device_id="test-device",
-            id="test-webhook-continue-no-hist",
-            payload=SmsReceivedPayload(
-                phone_number="+15551234567",
-                message="! Continue from before",
-                received_at="2025-08-29T06:23:00Z",
-                message_id="msg-continue-no-hist",
-            ),
-        )
-
-        # Call webhook handler
-        result = await handle_sms_proxy_received.fn(
-            request=MockRequest(), state=state, data=sms_data
-        )
-
-        # Verify response
-        assert result == "I don't have previous context, but let me help!"
-
-        # Verify assistant.run was called with empty history (no previous conversation found)
-        mock_assistant.run.assert_called_once()
-        call_args = mock_assistant.run.call_args
-        assert call_args[0][0] == "Continue from before"  # ! prefix stripped
-        assert (
-            call_args[1]["message_history"] == []
-        )  # Should be empty when no history found
-
-        # Verify conversation was saved
-        messages, conversation_id = await load_last_conversation(
-            db_pool, "+15551234567"
-        )
-        assert len(messages) == 2  # New conversation created
-        assert conversation_id is not None
-
-    finally:
-        await _cleanup_test_db_and_mocks(db_path, db_pool, originals)
-
-
-@pytest.mark.asyncio
-async def test_continue_conversation_with_history():
-    """Test continuing a conversation when user has previous conversation history."""
-    db_path, db_pool, mock_assistant, originals = await _setup_test_db_and_mocks()
-
-    try:
-        # Pre-populate database with first exchange
-        conversation_id = str(uuid.uuid4())
-        initial_messages = [
-            ModelRequest(
-                parts=[
-                    SystemPromptPart(content="You are a helpful assistant."),
-                    UserPromptPart(content="What's 2+2?"),
-                ]
-            ),
-            ModelResponse(parts=[TextPart(content="2+2 equals 4.")]),
-        ]
-        initial_messages_json = ModelMessagesTypeAdapter.dump_json(
-            initial_messages
-        ).decode("utf-8")
-        await save_conversation(
-            db_pool, "+15551234567", initial_messages_json, conversation_id
-        )
-
-        # Mock assistant.run for continuation (no system prompt in new messages)
-        mock_result = Mock()
-        mock_result.output = "3+3 equals 6."
-        mock_messages = [
-            ModelRequest(parts=[UserPromptPart(content="What about 3+3?")]),
-            ModelResponse(parts=[TextPart(content="3+3 equals 6.")]),
-        ]
-        mock_result.new_messages_json.return_value = ModelMessagesTypeAdapter.dump_json(
-            mock_messages
-        )
-        mock_assistant.run = AsyncMock(return_value=mock_result)
-
-        # Create state and SMS payload with ! prefix
-        state = Mock(spec=State)
-        state.db_pool = db_pool
-
-        sms_data = SmsReceived(
-            device_id="test-device",
-            id="test-webhook-continue",
-            payload=SmsReceivedPayload(
-                phone_number="+15551234567",
-                message="! What about 3+3?",
-                received_at="2025-08-29T06:24:00Z",
-                message_id="msg-continue",
-            ),
-        )
-
-        # Call webhook handler
-        result = await handle_sms_proxy_received.fn(
-            request=MockRequest(), state=state, data=sms_data
-        )
-
-        # Verify response
-        assert result == "3+3 equals 6."
-
-        # Verify assistant.run was called with existing history
-        mock_assistant.run.assert_called_once()
-        call_args = mock_assistant.run.call_args
-        assert call_args[0][0] == "What about 3+3?"  # ! prefix stripped
-
-        # Verify the EXACT history content was loaded, not just the count
-        loaded_history = call_args[1]["message_history"]
-        assert len(loaded_history) == 2
-        assert loaded_history[0].parts[0].content == "You are a helpful assistant."
-        assert loaded_history[0].parts[1].content == "What's 2+2?"
-        assert loaded_history[1].parts[0].content == "2+2 equals 4."
-
-        # Verify database contains complete conversation (4 messages total)
-        messages, loaded_conversation_id = await load_last_conversation(
-            db_pool, "+15551234567"
-        )
-        assert loaded_conversation_id == conversation_id  # Same conversation
-        assert len(messages) == 4  # Initial 2 + new 2
-
-        # Check first exchange (unchanged)
-        assert isinstance(messages[0], ModelRequest)
-        assert len(messages[0].parts) == 2  # System + user
-        assert messages[0].parts[0].content == "You are a helpful assistant."
-        assert messages[0].parts[1].content == "What's 2+2?"
-
-        assert isinstance(messages[1], ModelResponse)
-        assert (
-            isinstance(messages[1].parts[0], TextPart)
-            and messages[1].parts[0].content == "2+2 equals 4."
-        )
-
-        # Check second exchange (no system prompt)
-        assert isinstance(messages[2], ModelRequest)
-        assert len(messages[2].parts) == 1  # Only user prompt
-        assert messages[2].parts[0].content == "What about 3+3?"
-
-        assert isinstance(messages[3], ModelResponse)
-        assert (
-            isinstance(messages[3].parts[0], TextPart)
-            and messages[3].parts[0].content == "3+3 equals 6."
-        )
-
-    finally:
+        # Restore original settings
+        routes.webhook.settings = original_settings
         await _cleanup_test_db_and_mocks(db_path, db_pool, originals)

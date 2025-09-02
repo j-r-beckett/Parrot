@@ -5,7 +5,7 @@ from integrations.sms_proxy import send_sms as send_sms_sms_proxy
 from assistant.agent import create_assistant
 from assistant.dependencies import create_assistant_dependencies
 from config import settings
-from database.manager import load_last_conversation, save_conversation
+from database.manager import load_recent_messages, save_conversation
 
 
 @post("/webhook/sms-proxy/received")
@@ -21,18 +21,11 @@ async def handle_sms_proxy_received(
     # Create assistant
     assistant = create_assistant()
 
-    # Handle conversation logic
-    if data.payload.message.startswith("! "):
-        # Load existing conversation and strip the "! " prefix
-        message_history, conversation_id = await load_last_conversation(
-            state.db_pool, data.payload.phone_number
-        )
-        message = data.payload.message[2:]
-    else:
-        # Start new conversation
-        message_history = []
-        message = data.payload.message
-        conversation_id = None
+    # Load recent messages based on memory_depth setting
+    message_history = await load_recent_messages(
+        state.db_pool, data.payload.phone_number, settings.memory_depth
+    )
+    message = data.payload.message
 
     # Run assistant
     result = await assistant.run(message, deps=deps, message_history=message_history)
@@ -42,7 +35,6 @@ async def handle_sms_proxy_received(
         state.db_pool,
         data.payload.phone_number,
         result.new_messages_json().decode("utf-8"),
-        conversation_id,
     )
 
     # If we're running locally w/ no sms-proxy, just return

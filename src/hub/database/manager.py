@@ -32,34 +32,25 @@ async def init_database(db_pool: SQLiteConnectionPool) -> None:
         await db.commit()  # type: ignore
 
 
-async def load_last_conversation(
-    db_pool: SQLiteConnectionPool, phone_number: str
-) -> Tuple[List[ModelMessage], Optional[str]]:
-    """Load the last conversation for a phone number. Returns (messages, conversation_id) or ([], None)."""
+async def load_recent_messages(
+    db_pool: SQLiteConnectionPool, phone_number: str, memory_depth: int
+) -> List[ModelMessage]:
+    """Load the last memory_depth interactions for a phone number. Returns messages list."""
     async with db_pool.connection() as db:
-        # First, find the most recent conversation_id for this user
+        # Get the last memory_depth interactions for this user
         cursor = await db.execute(
-            "SELECT conversation_id FROM messages WHERE user_phone_number = ? ORDER BY id DESC LIMIT 1",
-            (phone_number,),
-        )
-        row = await cursor.fetchone()
-        if not row:
-            return ([], None)
-
-        conversation_id = row[0]
-
-        # Then, get all messages in that conversation
-        cursor = await db.execute(
-            "SELECT message FROM messages WHERE conversation_id = ? ORDER BY id",
-            (conversation_id,),
+            "SELECT message FROM messages WHERE user_phone_number = ? ORDER BY id DESC LIMIT ?",
+            (phone_number, memory_depth),
         )
         rows = await cursor.fetchall()
+        
+        # Reverse the order to get chronological order and collect messages
         messages = []
-        for row in rows:
+        for row in reversed(rows):
             parsed = json.loads(row[0])
             messages.extend(ModelMessagesTypeAdapter.validate_python(parsed))
 
-        return (messages, conversation_id)
+        return messages
 
 
 async def save_conversation(
