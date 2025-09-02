@@ -1,5 +1,10 @@
 TODO
 
+## Git Hooks
+Pre-commit hooks run compiler/type checker, unit tests, and formatter for both Python and Go code.
+
+Enable: `git config core.hooksPath .githooks`
+
 Pixel 2 IP: 192.168.0.21
 
 ADB connect: adb connect 192.168.0.16:5555
