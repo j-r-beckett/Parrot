@@ -29,6 +29,13 @@ async def init_database(db_pool: SQLiteConnectionPool) -> None:
             CREATE INDEX IF NOT EXISTS idx_user_phone_number 
             ON messages(user_phone_number)
         """)
+        await db.execute("""
+            CREATE TABLE IF NOT EXISTS snapshots (
+                snapshot_id TEXT PRIMARY KEY,
+                context TEXT NOT NULL,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        """)
         await db.commit()  # type: ignore
 
 
@@ -69,6 +76,20 @@ async def save_conversation(
             (conversation_id, phone_number, messages_json),
         )
 
+        await db.commit()  # type: ignore
+
+
+async def save_snapshot(
+    db_pool: SQLiteConnectionPool,
+    snapshot_id: str,
+    context: str,
+) -> None:
+    """Save a snapshot of the full context before LLM request."""
+    async with db_pool.connection() as db:
+        await db.execute(
+            "INSERT INTO snapshots (snapshot_id, context) VALUES (?, ?)",
+            (snapshot_id, context),
+        )
         await db.commit()  # type: ignore
 
 

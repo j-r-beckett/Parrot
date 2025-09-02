@@ -5,7 +5,9 @@ from integrations.sms_proxy import send_sms as send_sms_sms_proxy
 from assistant.agent import create_assistant
 from assistant.dependencies import create_assistant_dependencies
 from config import settings
-from database.manager import load_recent_messages, save_conversation
+from database.manager import load_recent_messages, save_conversation, save_snapshot
+import uuid
+import json
 
 
 @post("/webhook/sms-proxy/received")
@@ -29,6 +31,12 @@ async def handle_sms_proxy_received(
 
     # Run assistant
     result = await assistant.run(message, deps=deps, message_history=message_history)
+
+    # Create snapshot of full context after LLM response
+    snapshot_id = str(uuid.uuid4())
+    full_context = result.all_messages_json().decode("utf-8")
+    await save_snapshot(state.db_pool, snapshot_id, full_context)
+    request.logger.info(f"Created conversation snapshot {snapshot_id}")
 
     # Save conversation using PydanticAI's built-in JSON serialization
     await save_conversation(

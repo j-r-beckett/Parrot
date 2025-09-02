@@ -91,6 +91,10 @@ async def test_memory_depth_limit():
             ModelRequest(parts=[UserPromptPart(content="Message A")]),
             ModelResponse(parts=[TextPart(content="Response A")]),
         ])
+        mock_result1.all_messages_json.return_value = ModelMessagesTypeAdapter.dump_json([
+            ModelRequest(parts=[UserPromptPart(content="Message A")]),
+            ModelResponse(parts=[TextPart(content="Response A")]),
+        ])
         mock_assistant.run = AsyncMock(return_value=mock_result1)
 
         sms_data1 = SmsReceived(
@@ -116,6 +120,10 @@ async def test_memory_depth_limit():
         mock_result2 = Mock()
         mock_result2.output = "Response B"
         mock_result2.new_messages_json.return_value = ModelMessagesTypeAdapter.dump_json([
+            ModelRequest(parts=[UserPromptPart(content="Message B")]),
+            ModelResponse(parts=[TextPart(content="Response B")]),
+        ])
+        mock_result2.all_messages_json.return_value = ModelMessagesTypeAdapter.dump_json([
             ModelRequest(parts=[UserPromptPart(content="Message B")]),
             ModelResponse(parts=[TextPart(content="Response B")]),
         ])
@@ -146,6 +154,10 @@ async def test_memory_depth_limit():
         mock_result3 = Mock()
         mock_result3.output = "Response C"
         mock_result3.new_messages_json.return_value = ModelMessagesTypeAdapter.dump_json([
+            ModelRequest(parts=[UserPromptPart(content="Message C")]),
+            ModelResponse(parts=[TextPart(content="Response C")]),
+        ])
+        mock_result3.all_messages_json.return_value = ModelMessagesTypeAdapter.dump_json([
             ModelRequest(parts=[UserPromptPart(content="Message C")]),
             ModelResponse(parts=[TextPart(content="Response C")]),
         ])
