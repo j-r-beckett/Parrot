@@ -17,6 +17,7 @@ class AssistantDependencies:
     valhalla_client: httpx.AsyncClient
     citi_bike_client: CitiBikeClient
     geocode: Callable[[str], Awaitable[tuple[float, float]]]
+    reverse_geocode: Callable[[float, float], Awaitable[str]]
     logger: Logger
 
 
@@ -24,8 +25,9 @@ def create_assistant_dependencies(
     state: State, logger: Logger
 ) -> AssistantDependencies:
     """Create assistant dependencies from Litestar state."""
-    # Create partial function with httpx client bound
+    # Create partial functions with httpx client bound
     geocode = partial(nominatim_client.geocode, state.nominatim_httpx_client)
+    reverse_geocode = partial(nominatim_client.reverse_geocode, state.nominatim_httpx_client)
 
     return AssistantDependencies(
         weather_client=state.weather_httpx_client,
@@ -33,5 +35,6 @@ def create_assistant_dependencies(
         valhalla_client=state.valhalla_httpx_client,
         citi_bike_client=state.citi_bike_client,
         geocode=geocode,
+        reverse_geocode=reverse_geocode,
         logger=logger,
     )

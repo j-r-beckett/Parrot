@@ -94,11 +94,12 @@ async def save_snapshot(
 
 
 async def create_db_pool(db_path: str, logger: Logger) -> SQLiteConnectionPool:
+    # Clear database file when running locally
+    if settings.ring == "local" and os.path.exists(db_path):
+        logger.warning("Removing existing database file: %s", db_path)
+        os.remove(db_path)
+    
     def sqlite_connection() -> aiosqlite.Connection:
-        if settings.ring == "local":
-            logger.info("Creating in-memory database connection")
-            return aiosqlite.connect("file::memory:?cache=shared", uri=True)
-
         logger.info("Creating connection to database at %s", db_path)
         os.makedirs(os.path.dirname(db_path), exist_ok=True)
         return aiosqlite.connect(db_path)

@@ -22,3 +22,25 @@ async def geocode(client: httpx.AsyncClient, text: str) -> tuple[float, float]:
     result = results[0]
 
     return float(result["lat"]), float(result["lon"])
+
+
+async def reverse_geocode(client: httpx.AsyncClient, lat: float, lon: float) -> str:
+    """Reverse geocode coordinates to get a human-readable address"""
+    response = await client.get(
+        "/reverse",
+        params={
+            "lat": lat,
+            "lon": lon,
+            "format": "json",
+            "addressdetails": 1,
+        },
+    )
+
+    response.raise_for_status()
+
+    result = response.json()
+
+    if not result:
+        raise ValueError(f"No reverse geocoding results found for: {lat}, {lon}")
+
+    return result.get("display_name", f"{lat}, {lon}")
