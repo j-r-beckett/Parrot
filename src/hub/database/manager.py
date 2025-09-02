@@ -3,94 +3,76 @@ from aiosqlitepool import SQLiteConnectionPool
 import os
 import json
 import uuid
-from typing import List, Optional, Tuple, cast
+from typing import Optional
 from litestar.types.protocols import Logger
-from aiosqlitepool.protocols import Connection as PoolConnection
-from pydantic_ai.messages import ModelMessage, ModelMessagesTypeAdapter
 from config import settings
 
 
 async def init_database(db_pool: SQLiteConnectionPool) -> None:
+    """Initialize the interactions database table."""
     async with db_pool.connection() as db:
         await db.execute("""
-            CREATE TABLE IF NOT EXISTS messages (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                conversation_id TEXT NOT NULL,
+            CREATE TABLE IF NOT EXISTS interactions (
+                id TEXT PRIMARY KEY,
                 user_phone_number TEXT NOT NULL,
-                message TEXT NOT NULL,
+                user_prompt TEXT NOT NULL,
+                llm_response TEXT NOT NULL,
+                messages TEXT NOT NULL,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
         """)
         await db.execute("""
-            CREATE INDEX IF NOT EXISTS idx_conversation_id 
-            ON messages(conversation_id)
-        """)
-        await db.execute("""
-            CREATE INDEX IF NOT EXISTS idx_user_phone_number 
-            ON messages(user_phone_number)
-        """)
-        await db.execute("""
-            CREATE TABLE IF NOT EXISTS snapshots (
-                snapshot_id TEXT PRIMARY KEY,
-                context TEXT NOT NULL,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-            )
+            CREATE INDEX IF NOT EXISTS idx_phone_created 
+            ON interactions(user_phone_number, created_at)
         """)
         await db.commit()  # type: ignore
 
 
-async def load_recent_messages(
+async def load_recent_interactions(
     db_pool: SQLiteConnectionPool, phone_number: str, memory_depth: int
-) -> List[ModelMessage]:
-    """Load the last memory_depth interactions for a phone number. Returns messages list."""
+) -> str:
+    """Load the last memory_depth interactions for a phone number as JSON string."""
     async with db_pool.connection() as db:
-        # Get the last memory_depth interactions for this user
         cursor = await db.execute(
-            "SELECT message FROM messages WHERE user_phone_number = ? ORDER BY id DESC LIMIT ?",
+            """SELECT user_prompt, llm_response, created_at 
+               FROM interactions 
+               WHERE user_phone_number = ? 
+               ORDER BY created_at DESC LIMIT ?""",
             (phone_number, memory_depth),
         )
         rows = await cursor.fetchall()
         
-        # Reverse the order to get chronological order and collect messages
-        messages = []
+        # Build list of interaction dicts in chronological order
+        interactions = []
         for row in reversed(rows):
-            parsed = json.loads(row[0])
-            messages.extend(ModelMessagesTypeAdapter.validate_python(parsed))
+            interactions.append({
+                "user_prompt": row[0],
+                "llm_response": row[1],
+                "timestamp": row[2]
+            })
+        
+        return json.dumps(interactions)
 
-        return messages
 
-
-async def save_conversation(
+async def save_interaction(
     db_pool: SQLiteConnectionPool,
     phone_number: str,
+    user_prompt: str,
+    llm_response: str,
     messages_json: str,
-    conversation_id: Optional[str] = None,
-) -> None:
-    """Save new messages to the conversation for a phone number."""
-    if conversation_id is None:
-        conversation_id = str(uuid.uuid4())
-
+) -> str:
+    """Save a new interaction and return the interaction ID (UUID)."""
+    interaction_id = str(uuid.uuid4())
     async with db_pool.connection() as db:
         await db.execute(
-            "INSERT INTO messages (conversation_id, user_phone_number, message) VALUES (?, ?, ?)",
-            (conversation_id, phone_number, messages_json),
-        )
-
-        await db.commit()  # type: ignore
-
-
-async def save_snapshot(
-    db_pool: SQLiteConnectionPool,
-    snapshot_id: str,
-    context: str,
-) -> None:
-    """Save a snapshot of the full context before LLM request."""
-    async with db_pool.connection() as db:
-        await db.execute(
-            "INSERT INTO snapshots (snapshot_id, context) VALUES (?, ?)",
-            (snapshot_id, context),
+            """INSERT INTO interactions (id, user_phone_number, user_prompt, llm_response, messages) 
+               VALUES (?, ?, ?, ?, ?)""",
+            (interaction_id, phone_number, user_prompt, llm_response, messages_json),
         )
         await db.commit()  # type: ignore
+        return interaction_id
+
+
 
 
 async def create_db_pool(db_path: str, logger: Logger) -> SQLiteConnectionPool:

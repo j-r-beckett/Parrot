@@ -5,9 +5,8 @@ from integrations.sms_proxy import send_sms as send_sms_sms_proxy
 from assistant.agent import create_assistant
 from assistant.dependencies import create_assistant_dependencies
 from config import settings
-from database.manager import load_recent_messages, save_conversation, save_snapshot
-import uuid
-import json
+from database.manager import load_recent_interactions, save_interaction
+import system_prompt
 
 
 @post("/webhook/sms-proxy/received")
@@ -17,33 +16,35 @@ async def handle_sms_proxy_received(
     """Handle SMS received webhooks from sms-proxy."""
     request.logger.info(f"SMS received: {data}")
 
-    # Create assistant dependencies
-    deps = create_assistant_dependencies(state, request.logger)
-
-    # Create assistant
-    assistant = create_assistant()
-
-    # Load recent messages based on memory_depth setting
-    message_history = await load_recent_messages(
-        state.db_pool, data.payload.phone_number, settings.memory_depth
+    # Load recent interactions for context
+    interactions_json = await load_recent_interactions(
+        state.db_pool, 
+        data.payload.phone_number, 
+        settings.memory_depth
     )
+    
+    # Build dynamic system prompt
+    dynamic_prompt = system_prompt.prompt(settings.llm.model, interactions_json)
+    
+    # Create assistant with dynamic prompt
+    deps = create_assistant_dependencies(state, request.logger)
+    assistant = create_assistant(dynamic_prompt)
+    
+    # Run assistant (no message_history parameter)
     message = data.payload.message
-
-    # Run assistant
-    result = await assistant.run(message, deps=deps, message_history=message_history)
-
-    # Create snapshot of full context after LLM response
-    snapshot_id = str(uuid.uuid4())
-    full_context = result.all_messages_json().decode("utf-8")
-    await save_snapshot(state.db_pool, snapshot_id, full_context)
-    request.logger.info(f"Created conversation snapshot {snapshot_id}")
-
-    # Save conversation using PydanticAI's built-in JSON serialization
-    await save_conversation(
+    result = await assistant.run(message, deps=deps)
+    
+    # Save the interaction with full messages for debugging
+    interaction_id = await save_interaction(
         state.db_pool,
         data.payload.phone_number,
-        result.new_messages_json().decode("utf-8"),
+        message,
+        result.output,
+        result.new_messages_json().decode("utf-8")
     )
+    
+    # Log only the interaction ID
+    request.logger.info(f"Created interaction {interaction_id} for {data.payload.phone_number}")
 
     # If we're running locally w/ no sms-proxy, just return
     if settings.ring == "local":

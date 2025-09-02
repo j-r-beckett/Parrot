@@ -1,23 +1,14 @@
 import pytest
 import tempfile
 import os
-import uuid
+import json
 from unittest.mock import AsyncMock, Mock
 from litestar.datastructures import State
 
 import routes.webhook
 from routes.webhook import handle_sms_proxy_received
 from schemas.sms import SmsReceived, SmsReceivedPayload
-from database.manager import create_db_pool, save_conversation, load_recent_messages
-from pydantic_ai.messages import (
-    UserPromptPart,
-    ModelRequest,
-    ModelResponse,
-    TextPart,
-    SystemPromptPart,
-    ModelMessagesTypeAdapter,
-)
-from typing import List, Union
+from database.manager import create_db_pool, save_interaction, load_recent_interactions
 
 
 class MockRequest:
@@ -79,6 +70,8 @@ async def test_memory_depth_limit():
         mock_settings = Mock()
         mock_settings.memory_depth = 2
         mock_settings.ring = "local"
+        mock_settings.llm = Mock()
+        mock_settings.llm.model = "test-model"
         routes.webhook.settings = mock_settings
 
         state = Mock(spec=State)
@@ -87,14 +80,7 @@ async def test_memory_depth_limit():
         # First interaction
         mock_result1 = Mock()
         mock_result1.output = "Response A"
-        mock_result1.new_messages_json.return_value = ModelMessagesTypeAdapter.dump_json([
-            ModelRequest(parts=[UserPromptPart(content="Message A")]),
-            ModelResponse(parts=[TextPart(content="Response A")]),
-        ])
-        mock_result1.all_messages_json.return_value = ModelMessagesTypeAdapter.dump_json([
-            ModelRequest(parts=[UserPromptPart(content="Message A")]),
-            ModelResponse(parts=[TextPart(content="Response A")]),
-        ])
+        mock_result1.new_messages_json.return_value = b'[{"type":"user","content":"Message A"},{"type":"assistant","content":"Response A"}]'
         mock_assistant.run = AsyncMock(return_value=mock_result1)
 
         sms_data1 = SmsReceived(
@@ -111,22 +97,16 @@ async def test_memory_depth_limit():
         await handle_sms_proxy_received.fn(request=MockRequest(), state=state, data=sms_data1)
 
         # Verify first interaction is in database
-        messages = await load_recent_messages(db_pool, "+15551234567", 2)
-        assert len(messages) == 2
-        assert messages[0].parts[0].content == "Message A"  # type: ignore
-        assert messages[1].parts[0].content == "Response A"  # type: ignore
+        interactions_json = await load_recent_interactions(db_pool, "+15551234567", 2)
+        interactions = json.loads(interactions_json)
+        assert len(interactions) == 1
+        assert interactions[0]["user_prompt"] == "Message A"
+        assert interactions[0]["llm_response"] == "Response A"
 
         # Second interaction
         mock_result2 = Mock()
         mock_result2.output = "Response B"
-        mock_result2.new_messages_json.return_value = ModelMessagesTypeAdapter.dump_json([
-            ModelRequest(parts=[UserPromptPart(content="Message B")]),
-            ModelResponse(parts=[TextPart(content="Response B")]),
-        ])
-        mock_result2.all_messages_json.return_value = ModelMessagesTypeAdapter.dump_json([
-            ModelRequest(parts=[UserPromptPart(content="Message B")]),
-            ModelResponse(parts=[TextPart(content="Response B")]),
-        ])
+        mock_result2.new_messages_json.return_value = b'[{"type":"user","content":"Message B"},{"type":"assistant","content":"Response B"}]'
         mock_assistant.run = AsyncMock(return_value=mock_result2)
 
         sms_data2 = SmsReceived(
@@ -143,24 +123,18 @@ async def test_memory_depth_limit():
         await handle_sms_proxy_received.fn(request=MockRequest(), state=state, data=sms_data2)
         
         # Verify both interactions are returned (memory_depth=2)
-        messages = await load_recent_messages(db_pool, "+15551234567", 2)
-        assert len(messages) == 4  # 2 interactions * 2 messages each
-        assert messages[0].parts[0].content == "Message A"  # type: ignore
-        assert messages[1].parts[0].content == "Response A"  # type: ignore
-        assert messages[2].parts[0].content == "Message B"  # type: ignore
-        assert messages[3].parts[0].content == "Response B"  # type: ignore
+        interactions_json = await load_recent_interactions(db_pool, "+15551234567", 2)
+        interactions = json.loads(interactions_json)
+        assert len(interactions) == 2
+        assert interactions[0]["user_prompt"] == "Message A"
+        assert interactions[0]["llm_response"] == "Response A"
+        assert interactions[1]["user_prompt"] == "Message B"
+        assert interactions[1]["llm_response"] == "Response B"
 
         # Third interaction
         mock_result3 = Mock()
         mock_result3.output = "Response C"
-        mock_result3.new_messages_json.return_value = ModelMessagesTypeAdapter.dump_json([
-            ModelRequest(parts=[UserPromptPart(content="Message C")]),
-            ModelResponse(parts=[TextPart(content="Response C")]),
-        ])
-        mock_result3.all_messages_json.return_value = ModelMessagesTypeAdapter.dump_json([
-            ModelRequest(parts=[UserPromptPart(content="Message C")]),
-            ModelResponse(parts=[TextPart(content="Response C")]),
-        ])
+        mock_result3.new_messages_json.return_value = b'[{"type":"user","content":"Message C"},{"type":"assistant","content":"Response C"}]'
         mock_assistant.run = AsyncMock(return_value=mock_result3)
 
         sms_data3 = SmsReceived(
@@ -177,17 +151,63 @@ async def test_memory_depth_limit():
         await handle_sms_proxy_received.fn(request=MockRequest(), state=state, data=sms_data3)
         
         # Verify only last 2 interactions are returned (memory_depth=2)
-        messages = await load_recent_messages(db_pool, "+15551234567", 2)
-        assert len(messages) == 4  # 2 interactions * 2 messages each
-        assert messages[0].parts[0].content == "Message B"  # type: ignore
-        assert messages[1].parts[0].content == "Response B"  # type: ignore
-        assert messages[2].parts[0].content == "Message C"  # type: ignore
-        assert messages[3].parts[0].content == "Response C"  # type: ignore
+        interactions_json = await load_recent_interactions(db_pool, "+15551234567", 2)
+        interactions = json.loads(interactions_json)
+        assert len(interactions) == 2
+        assert interactions[0]["user_prompt"] == "Message B"
+        assert interactions[0]["llm_response"] == "Response B"
+        assert interactions[1]["user_prompt"] == "Message C"
+        assert interactions[1]["llm_response"] == "Response C"
         # First interaction should not be returned
-        assert not any("Message A" in str(msg) for msg in messages)
-        assert not any("Response A" in str(msg) for msg in messages)
+        assert not any(interaction["user_prompt"] == "Message A" for interaction in interactions)
+        assert not any(interaction["llm_response"] == "Response A" for interaction in interactions)
 
     finally:
         # Restore original settings
         routes.webhook.settings = original_settings
+        await _cleanup_test_db_and_mocks(db_path, db_pool, originals)
+
+
+@pytest.mark.asyncio
+async def test_empty_interactions():
+    """Test that empty interactions return '[]'."""
+    db_path, db_pool, mock_assistant, originals = await _setup_test_db_and_mocks()
+
+    try:
+        # Test empty interactions
+        interactions_json = await load_recent_interactions(db_pool, "+15551234567", 5)
+        assert interactions_json == "[]"
+
+    finally:
+        await _cleanup_test_db_and_mocks(db_path, db_pool, originals)
+
+
+@pytest.mark.asyncio
+async def test_save_and_load_interaction():
+    """Test saving and loading individual interactions."""
+    db_path, db_pool, mock_assistant, originals = await _setup_test_db_and_mocks()
+
+    try:
+        # Save an interaction
+        interaction_id = await save_interaction(
+            db_pool,
+            "+15551234567",
+            "Test prompt",
+            "Test response",
+            '{"messages": "test"}'
+        )
+
+        # Verify it's a UUID
+        assert len(interaction_id) == 36  # UUID format
+        assert "-" in interaction_id
+
+        # Load the interaction
+        interactions_json = await load_recent_interactions(db_pool, "+15551234567", 5)
+        interactions = json.loads(interactions_json)
+        assert len(interactions) == 1
+        assert interactions[0]["user_prompt"] == "Test prompt"
+        assert interactions[0]["llm_response"] == "Test response"
+        assert "timestamp" in interactions[0]
+
+    finally:
         await _cleanup_test_db_and_mocks(db_path, db_pool, originals)

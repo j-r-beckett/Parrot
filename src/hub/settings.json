@@ -18,5 +18,5 @@
     "user_agent": "parrot-0.1"
   },
   "memory_depth": 5,
-  "conversations_db": ".db/conversations.db"
+  "interactions_db": ".db/interactions.db"
 }

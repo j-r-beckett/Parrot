@@ -2,18 +2,18 @@ from pydantic_ai import Agent
 from pydantic_ai.models.anthropic import AnthropicModelSettings
 from pydantic_ai.builtin_tools import CodeExecutionTool
 from config import settings
-import system_prompt
 from .dependencies import AssistantDependencies
 
 
 def create_assistant(
+    system_prompt_str: str,
     dependencies_type: type[AssistantDependencies] = AssistantDependencies,
 ) -> Agent[AssistantDependencies, str]:
     """Create assistant agent with tools."""
     agent = Agent(
         "anthropic:claude-sonnet-4-20250514",
         deps_type=dependencies_type,
-        system_prompt=system_prompt.prompt(settings.llm.model),
+        system_prompt=system_prompt_str,
         model_settings=AnthropicModelSettings(
             max_tokens=settings.llm.max_tokens,
             anthropic_thinking={

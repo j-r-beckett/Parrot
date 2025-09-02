@@ -14,13 +14,13 @@ The hub service is built on:
 
 ### AI Assistant
 - **Models**: Supports Claude Sonnet 4 (with thinking mode) and Claude 3.5 Haiku
-- **Conversation Memory**: Persistent conversations stored in SQLite database
-- **Tool Integration**: Weather, navigation, and datetime tools
+- **Context Management**: Recent interactions embedded in system prompt for better context preservation
+- **Tool Integration**: Weather, navigation, datetime, recipe, search, and code execution tools
 - **Terse Responses**: Configured for brief, efficient replies optimized for SMS
 
 ### SMS Integration
 - Receives SMS via webhooks from sms-proxy service
-- Conversation continuation with `! ` prefix
+- Memory-managed context: Recent interactions embedded in system prompt
 - Auto-registration with sms-proxy for webhook delivery
 - Delivery confirmation handling
 
@@ -29,8 +29,10 @@ The hub service is built on:
 2. **Navigation** - Turn-by-turn directions via Valhalla routing service  
 3. **DateTime** - Current time for any location with timezone handling
 4. **Geocoding** - Location lookup via Nominatim/OpenStreetMap
-5. **Web Search** - PydanticAI builtin WebSearchTool for current information
-6. **Code Execution** - PydanticAI builtin CodeExecutionTool (Anthropic's tool lets the model run Python3)
+5. **Recipe** - Recipe search from reliable cooking sources with SMS-optimized formatting
+6. **Web Search** - PydanticAI builtin WebSearchTool for current information
+7. **Code Execution** - PydanticAI builtin CodeExecutionTool (Anthropic's tool lets the model run Python3)
+8. **Citi Bike** - Real-time bike share station status and availability
 
 ## Key Components
 
@@ -52,34 +54,35 @@ routes/
 ### Assistant System
 ```
 assistant/
-├── agent.py        # Pydantic AI agent factory and tool registration
+├── agent.py        # Pydantic AI agent factory with dynamic system prompt support
 ├── dependencies.py # Dependency injection for assistant tools
 └── tools/          # Tool implementations
-    ├── weather.py    # NWS weather forecasts
-    ├── navigation.py # Valhalla routing directions
-    └── datetime.py   # Timezone-aware datetime lookup
+    ├── weather.py      # NWS weather forecasts
+    ├── navigation.py   # Valhalla routing directions
+    ├── datetime.py     # Timezone-aware datetime lookup
+    ├── recipe.py       # Recipe search with SMS formatting
+    ├── search.py       # Web search functionality
+    └── citi_bike_tool.py # Citi Bike station status
 ```
 
 ### External Clients
 ```
-clients/
+integrations/
 ├── sms_proxy.py    # SMS sending and registration management
-├── weather.py      # National Weather Service API client
 ├── nominatim.py    # OpenStreetMap geocoding client
-└── valhalla.py     # Valhalla routing service client
+└── citi_bike.py    # Citi Bike GBFS API client
 ```
 
 ### Data Management
 ```
 database/
-├── manager.py      # SQLite connection pooling and conversation storage
-└── models.py       # Database models (currently minimal)
+└── manager.py      # SQLite connection pooling and interaction storage
 
 schemas/
-├── sms.py          # SMS webhook payload schemas
+├── sms.py          # SMS webhook payload schemas  
 ├── weather.py      # Weather forecast response schemas
 ├── navigation.py   # Navigation directions schemas
-└── conversation.py # Conversation data schemas
+└── interaction.py  # Interaction data schemas for memory management
 ```
 
 ## Configuration
@@ -91,8 +94,8 @@ schemas/
 - `RING` - Deployment environment (local/ppe/prod)
 
 ### Settings Files
-- `settings.json` - Service configuration including API URLs and LLM settings
-- `prompts.json` - System prompt for the assistant (emphasizes terseness)
+- `settings.json` - Service configuration including API URLs, LLM settings, and memory_depth
+- `system_prompt.md` - Dynamic system prompt template with interaction context support
 
 ## Development
 
@@ -160,18 +163,22 @@ The hub automatically registers with sms-proxy on startup to receive:
 ## Conversation Flow
 
 1. SMS received via webhook from sms-proxy
-2. Check for conversation continuation (`! ` prefix)
-3. Load existing conversation or start new one
-4. Process message through Pydantic AI agent with available tools
-5. Save conversation to database
-6. Send response via sms-proxy (unless running locally)
+2. Load recent interactions from database (limited by memory_depth setting)
+3. Build dynamic system prompt with embedded conversation context
+4. Create Pydantic AI agent with dynamic system prompt
+5. Process message through agent with available tools  
+6. Save interaction (user prompt + LLM response + full message JSON) to database
+7. Send response via sms-proxy (unless running locally)
 
 ## Key Architectural Decisions
 
 - **Async-first**: All I/O operations are async for better performance
 - **Connection pooling**: SQLite connection pooling for database efficiency  
 - **Tool-based AI**: Pydantic AI agents use structured tools with type-safe dependency injection
-- **Persistent conversations**: Full conversation history maintained per phone number
+- **Context management**: Recent interactions embedded in system prompt instead of chat history
+- **Memory management**: Configurable memory_depth with chronological ordering
+- **UUID primary keys**: Better for distributed systems and debugging
+- **Clean logging**: Full message JSON stored for debugging, only interaction IDs logged
 - **Environment-aware**: Different behavior based on deployment ring
 - **Resource cleanup**: Proper lifecycle management for HTTP clients and database connections
 

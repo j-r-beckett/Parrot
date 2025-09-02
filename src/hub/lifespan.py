@@ -36,7 +36,7 @@ async def lifespan(app: Litestar) -> AsyncGenerator[None, None]:
     logger = app.logger
     if logger is None:
         raise RuntimeError("App logger is None")
-    db_pool = await create_db_pool(settings.conversations_db, logger)
+    db_pool = await create_db_pool(settings.interactions_db, logger)
 
     # Create clients
     sms_proxy_client = create_sms_proxy_client(settings.sms_proxy_url)
