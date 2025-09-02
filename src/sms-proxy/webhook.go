@@ -247,8 +247,9 @@ func forwardToClients(clients []*Client, eventType string, body []byte) {
 
 			// Try forwarding with up to 3 attempts
 			maxAttempts := 3
+			httpClient := &http.Client{Timeout: 5 * time.Minute}
 			for attempt := 1; attempt <= maxAttempts; attempt++ {
-				resp, err := http.Post(webhookURL, "application/json", bytes.NewBuffer(body))
+				resp, err := httpClient.Post(webhookURL, "application/json", bytes.NewBuffer(body))
 				if err != nil {
 					log.Printf("ERROR: Failed to forward to client %s at %s (attempt %d/%d): %v",
 						client.ID, webhookURL, attempt, maxAttempts, err)
