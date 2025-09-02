@@ -25,7 +25,7 @@ search_agent = Agent(
     "anthropic:claude-sonnet-4-20250514",
     deps_type=type(None),  # No dependencies needed for search agent
     system_prompt=SEARCH_SYSTEM_PROMPT,
-    builtin_tools=[WebSearchTool()]
+    builtin_tools=[WebSearchTool()],
 )
 
 
@@ -37,14 +37,16 @@ def register_search_tool(agent: Agent[AssistantDependencies, str]) -> None:
     async def web_search(ctx: RunContext[AssistantDependencies], query: str) -> str:
         """Search the web for information by delegating to a specialized search agent."""
         ctx.deps.logger.info(f"Search tool called with query: {query}")
-        
+
         # Delegate to the search sub-agent
         result = await search_agent.run(
             query,
-            usage=ctx.usage  # Pass usage for tracking
+            usage=ctx.usage,  # Pass usage for tracking
         )
-        
-        ctx.deps.logger.info(f"Search sub-agent returned {len(result.output)} characters")
+
+        ctx.deps.logger.info(
+            f"Search sub-agent returned {len(result.output)} characters"
+        )
         ctx.deps.logger.info(f"Search result: {result.output}")
-        
+
         return result.output

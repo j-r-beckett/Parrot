@@ -18,33 +18,33 @@ async def handle_sms_proxy_received(
 
     # Load recent interactions for context
     interactions_json = await load_recent_interactions(
-        state.db_pool, 
-        data.payload.phone_number, 
-        settings.memory_depth
+        state.db_pool, data.payload.phone_number, settings.memory_depth
     )
-    
+
     # Build dynamic system prompt
     dynamic_prompt = system_prompt.prompt(settings.llm.model, interactions_json)
-    
+
     # Create assistant with dynamic prompt
     deps = create_assistant_dependencies(state, request.logger)
     assistant = create_assistant(dynamic_prompt)
-    
+
     # Run assistant (no message_history parameter)
     message = data.payload.message
     result = await assistant.run(message, deps=deps)
-    
+
     # Save the interaction with full messages for debugging
     interaction_id = await save_interaction(
         state.db_pool,
         data.payload.phone_number,
         message,
         result.output,
-        result.new_messages_json().decode("utf-8")
+        result.new_messages_json().decode("utf-8"),
     )
-    
+
     # Log only the interaction ID
-    request.logger.info(f"Created interaction {interaction_id} for {data.payload.phone_number}")
+    request.logger.info(
+        f"Created interaction {interaction_id} for {data.payload.phone_number}"
+    )
 
     # If we're running locally w/ no sms-proxy, just return
     if settings.ring == "local":

@@ -16,8 +16,6 @@ async def mock_geocode(location: str) -> tuple[float, float]:
     return (40.7128, -74.0060)
 
 
-
-
 def load_fixture(filename: str):
     """Load test fixture JSON file."""
     fixture_path = Path(__file__).parent / "fixtures" / filename

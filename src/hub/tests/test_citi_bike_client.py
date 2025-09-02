@@ -3,7 +3,7 @@ import httpx
 from datetime import datetime, timezone, timedelta
 import asyncio
 
-from integrations.citi_bike import CitiBikeClient, Station
+from integrations.citi_bike import CitiBikeClient
 from tests.utils import MockLogger
 
 

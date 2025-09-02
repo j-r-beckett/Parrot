@@ -34,14 +34,16 @@ def register_recipe_tool(agent: Agent[AssistantDependencies, str]) -> None:
     async def get_recipe(ctx: RunContext[AssistantDependencies], prompt: str) -> str:
         """Get a recipe for a specific dish by delegating to a specialized recipe agent."""
         ctx.deps.logger.info(f"Recipe tool called with prompt: {prompt}")
-        
+
         # Delegate to the recipe sub-agent
         result = await recipe_agent.run(
             prompt,
             usage=ctx.usage,  # Pass usage for tracking
         )
-        
-        ctx.deps.logger.info(f"Recipe sub-agent returned {len(result.output)} characters")
+
+        ctx.deps.logger.info(
+            f"Recipe sub-agent returned {len(result.output)} characters"
+        )
         ctx.deps.logger.info(f"Recipe result: {result.output}")
-        
+
         return result.output

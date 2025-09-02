@@ -1,6 +1,5 @@
 import httpx
 import asyncio
-from typing import Optional, Callable, Awaitable, Any
 from litestar.types.protocols import Logger
 import uuid
 

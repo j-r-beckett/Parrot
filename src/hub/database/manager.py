@@ -3,7 +3,6 @@ from aiosqlitepool import SQLiteConnectionPool
 import os
 import json
 import uuid
-from typing import Optional
 from litestar.types.protocols import Logger
 from config import settings
 
@@ -41,16 +40,14 @@ async def load_recent_interactions(
             (phone_number, memory_depth),
         )
         rows = await cursor.fetchall()
-        
+
         # Build list of interaction dicts in chronological order
         interactions = []
         for row in reversed(rows):
-            interactions.append({
-                "user_prompt": row[0],
-                "llm_response": row[1],
-                "timestamp": row[2]
-            })
-        
+            interactions.append(
+                {"user_prompt": row[0], "llm_response": row[1], "timestamp": row[2]}
+            )
+
         return json.dumps(interactions)
 
 
@@ -73,14 +70,12 @@ async def save_interaction(
         return interaction_id
 
 
-
-
 async def create_db_pool(db_path: str, logger: Logger) -> SQLiteConnectionPool:
     # Clear database file when running locally
     if settings.ring == "local" and os.path.exists(db_path):
         logger.warning("Removing existing database file: %s", db_path)
         os.remove(db_path)
-    
+
     def sqlite_connection() -> aiosqlite.Connection:
         logger.info("Creating connection to database at %s", db_path)
         os.makedirs(os.path.dirname(db_path), exist_ok=True)

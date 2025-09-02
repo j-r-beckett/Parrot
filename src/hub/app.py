@@ -1,5 +1,4 @@
 import os
-import logging
 from contextvars import ContextVar
 
 # Disable Anthropic and OpenAI SDK deferred schema building. Prevents errors during message serialization

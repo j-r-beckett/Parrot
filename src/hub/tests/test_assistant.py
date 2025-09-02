@@ -66,6 +66,7 @@ async def test_memory_depth_limit():
     try:
         # Mock settings.memory_depth for this test
         import routes.webhook
+
         original_settings = routes.webhook.settings
         mock_settings = Mock()
         mock_settings.memory_depth = 2
@@ -85,7 +86,7 @@ async def test_memory_depth_limit():
 
         sms_data1 = SmsReceived(
             device_id="test-device",
-            id="test-1", 
+            id="test-1",
             payload=SmsReceivedPayload(
                 phone_number="+15551234567",
                 message="Message A",
@@ -94,7 +95,9 @@ async def test_memory_depth_limit():
             ),
         )
 
-        await handle_sms_proxy_received.fn(request=MockRequest(), state=state, data=sms_data1)
+        await handle_sms_proxy_received.fn(
+            request=MockRequest(), state=state, data=sms_data1
+        )
 
         # Verify first interaction is in database
         interactions_json = await load_recent_interactions(db_pool, "+15551234567", 2)
@@ -113,15 +116,17 @@ async def test_memory_depth_limit():
             device_id="test-device",
             id="test-2",
             payload=SmsReceivedPayload(
-                phone_number="+15551234567", 
+                phone_number="+15551234567",
                 message="Message B",
                 received_at="2025-08-29T06:21:00Z",
                 message_id="msg-2",
             ),
         )
 
-        await handle_sms_proxy_received.fn(request=MockRequest(), state=state, data=sms_data2)
-        
+        await handle_sms_proxy_received.fn(
+            request=MockRequest(), state=state, data=sms_data2
+        )
+
         # Verify both interactions are returned (memory_depth=2)
         interactions_json = await load_recent_interactions(db_pool, "+15551234567", 2)
         interactions = json.loads(interactions_json)
@@ -141,15 +146,17 @@ async def test_memory_depth_limit():
             device_id="test-device",
             id="test-3",
             payload=SmsReceivedPayload(
-                phone_number="+15551234567", 
+                phone_number="+15551234567",
                 message="Message C",
                 received_at="2025-08-29T06:22:00Z",
                 message_id="msg-3",
             ),
         )
 
-        await handle_sms_proxy_received.fn(request=MockRequest(), state=state, data=sms_data3)
-        
+        await handle_sms_proxy_received.fn(
+            request=MockRequest(), state=state, data=sms_data3
+        )
+
         # Verify only last 2 interactions are returned (memory_depth=2)
         interactions_json = await load_recent_interactions(db_pool, "+15551234567", 2)
         interactions = json.loads(interactions_json)
@@ -159,8 +166,12 @@ async def test_memory_depth_limit():
         assert interactions[1]["user_prompt"] == "Message C"
         assert interactions[1]["llm_response"] == "Response C"
         # First interaction should not be returned
-        assert not any(interaction["user_prompt"] == "Message A" for interaction in interactions)
-        assert not any(interaction["llm_response"] == "Response A" for interaction in interactions)
+        assert not any(
+            interaction["user_prompt"] == "Message A" for interaction in interactions
+        )
+        assert not any(
+            interaction["llm_response"] == "Response A" for interaction in interactions
+        )
 
     finally:
         # Restore original settings
@@ -194,7 +205,7 @@ async def test_save_and_load_interaction():
             "+15551234567",
             "Test prompt",
             "Test response",
-            '{"messages": "test"}'
+            '{"messages": "test"}',
         )
 
         # Verify it's a UUID

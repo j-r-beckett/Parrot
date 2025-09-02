@@ -27,7 +27,9 @@ def create_assistant_dependencies(
     """Create assistant dependencies from Litestar state."""
     # Create partial functions with httpx client bound
     geocode = partial(nominatim_client.geocode, state.nominatim_httpx_client)
-    reverse_geocode = partial(nominatim_client.reverse_geocode, state.nominatim_httpx_client)
+    reverse_geocode = partial(
+        nominatim_client.reverse_geocode, state.nominatim_httpx_client
+    )
 
     return AssistantDependencies(
         weather_client=state.weather_httpx_client,

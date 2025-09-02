@@ -56,6 +56,7 @@ async def test_navigation_tool_happy_path():
         valhalla_client=valhalla_client,
         citi_bike_client=Mock(),  # type: ignore
         geocode=mock_geocode,
+        reverse_geocode=Mock(),  # type: ignore
         logger=MockLogger(),
     )
 

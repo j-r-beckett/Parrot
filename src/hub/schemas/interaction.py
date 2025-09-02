@@ -6,7 +6,7 @@ from typing import Optional
 @dataclass
 class Interaction:
     """Represents a user-LLM interaction for context management."""
-    
+
     id: str  # UUID
     user_phone_number: str
     user_prompt: str
