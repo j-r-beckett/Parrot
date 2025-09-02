@@ -74,6 +74,7 @@ func SetupAPIRouter(version string, clientManager *ClientManager, smsClient *SMS
 
 		// Validate phone number format
 		if !phoneNumberRegex.MatchString(number) {
+			log.Printf("ERROR: Invalid phone number: %s", number)
 			http.Error(w, fmt.Sprintf("Invalid phone number: %s", number), http.StatusBadRequest)
 			return
 		}
@@ -233,7 +234,7 @@ func SetupAPIRouter(version string, clientManager *ClientManager, smsClient *SMS
 		result, err := smsClient.SendSMS(req.PhoneNumbers, req.Message, req.SimNumber)
 		if err != nil {
 			log.Printf("ERROR: Failed to send SMS: %v", err)
-			http.Error(w, fmt.Sprintf("Failed to send SMS: %v", err), http.StatusInternalServerError)
+			http.Error(w, "Failed to send SMS", http.StatusInternalServerError)
 			return
 		}
 
