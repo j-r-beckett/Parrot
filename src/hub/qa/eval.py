@@ -109,7 +109,7 @@ class ScenarioRunner:
         phone_number = self.generate_phone_number()
         correlation_id = str(uuid4())
         
-        result = {
+        result: Dict[str, Any] = {
             "index": index,
             "id": scenario_id,
             "correlation_id": correlation_id,
@@ -182,7 +182,7 @@ def wrap_text(text: str, width: int) -> List[str]:
 def format_user_message(text: str) -> str:
     """Format user message: blue, right-aligned with 10 char offset."""
     lines = wrap_text(text, 50)  # Full 50 char width for wrapping
-    formatted_lines = []
+    formatted_lines: List[str] = []
     
     for line in lines:
         # Right-justify within 50 chars, then add 10 char offset
@@ -206,7 +206,7 @@ def format_ai_message(text: str, is_error: bool = False) -> str:
     
     lines = wrap_text(text, 50)
     
-    formatted_lines = []
+    formatted_lines: List[str] = []
     color_code = "\033[91m" if is_error else "\033[32m"  # red or standard green
     
     for line in lines:
@@ -325,8 +325,8 @@ async def main():
                 print(f"Unexpected error: {result}")
                 failure_count += 1
             else:
-                print(format_result(result))
-                if result.get("error"):
+                print(format_result(result))  # type: ignore
+                if result.get("error"):  # type: ignore
                     failure_count += 1
         
         print("All scenarios completed.")

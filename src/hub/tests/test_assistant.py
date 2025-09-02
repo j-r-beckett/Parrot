@@ -17,6 +17,7 @@ from pydantic_ai.messages import (
     SystemPromptPart,
     ModelMessagesTypeAdapter,
 )
+from typing import List, Union
 
 
 class MockRequest:
@@ -108,8 +109,8 @@ async def test_memory_depth_limit():
         # Verify first interaction is in database
         messages = await load_recent_messages(db_pool, "+15551234567", 2)
         assert len(messages) == 2
-        assert messages[0].parts[0].content == "Message A"
-        assert messages[1].parts[0].content == "Response A"
+        assert messages[0].parts[0].content == "Message A"  # type: ignore
+        assert messages[1].parts[0].content == "Response A"  # type: ignore
 
         # Second interaction
         mock_result2 = Mock()
@@ -136,10 +137,10 @@ async def test_memory_depth_limit():
         # Verify both interactions are returned (memory_depth=2)
         messages = await load_recent_messages(db_pool, "+15551234567", 2)
         assert len(messages) == 4  # 2 interactions * 2 messages each
-        assert messages[0].parts[0].content == "Message A"
-        assert messages[1].parts[0].content == "Response A"
-        assert messages[2].parts[0].content == "Message B"
-        assert messages[3].parts[0].content == "Response B"
+        assert messages[0].parts[0].content == "Message A"  # type: ignore
+        assert messages[1].parts[0].content == "Response A"  # type: ignore
+        assert messages[2].parts[0].content == "Message B"  # type: ignore
+        assert messages[3].parts[0].content == "Response B"  # type: ignore
 
         # Third interaction
         mock_result3 = Mock()
@@ -166,10 +167,10 @@ async def test_memory_depth_limit():
         # Verify only last 2 interactions are returned (memory_depth=2)
         messages = await load_recent_messages(db_pool, "+15551234567", 2)
         assert len(messages) == 4  # 2 interactions * 2 messages each
-        assert messages[0].parts[0].content == "Message B"
-        assert messages[1].parts[0].content == "Response B"
-        assert messages[2].parts[0].content == "Message C"
-        assert messages[3].parts[0].content == "Response C"
+        assert messages[0].parts[0].content == "Message B"  # type: ignore
+        assert messages[1].parts[0].content == "Response B"  # type: ignore
+        assert messages[2].parts[0].content == "Message C"  # type: ignore
+        assert messages[3].parts[0].content == "Response C"  # type: ignore
         # First interaction should not be returned
         assert not any("Message A" in str(msg) for msg in messages)
         assert not any("Response A" in str(msg) for msg in messages)
