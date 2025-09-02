@@ -2,6 +2,7 @@ from pydantic_ai import Agent
 from pydantic_ai.tools import RunContext
 from pydantic_ai.builtin_tools import WebSearchTool
 from assistant.dependencies import AssistantDependencies
+from assistant.tool_wrapper import safe_tool
 
 # Recipe-specific system prompt
 RECIPE_SYSTEM_PROMPT = """You are a recipe research assistant. Find recipes from reliable cooking sources. You should view multiple recipes in your search, but return the single reciple that best matches the query.
@@ -29,6 +30,7 @@ def register_recipe_tool(agent: Agent[AssistantDependencies, str]) -> None:
     """Register recipe tool on the agent."""
 
     @agent.tool
+    @safe_tool
     async def get_recipe(ctx: RunContext[AssistantDependencies], prompt: str) -> str:
         """Get a recipe for a specific dish by delegating to a specialized recipe agent."""
         ctx.deps.logger.info(f"Recipe tool called with prompt: {prompt}")

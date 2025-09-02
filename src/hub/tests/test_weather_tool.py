@@ -16,6 +16,8 @@ async def mock_geocode(location: str) -> tuple[float, float]:
     return (40.7128, -74.0060)
 
 
+
+
 def load_fixture(filename: str):
     """Load test fixture JSON file."""
     fixture_path = Path(__file__).parent / "fixtures" / filename
@@ -55,6 +57,7 @@ async def test_weather_tool_happy_path():
         valhalla_client=httpx.AsyncClient(),  # Won't be used
         citi_bike_client=Mock(),  # type: ignore
         geocode=mock_geocode,
+        reverse_geocode=Mock(),  # type: ignore
         logger=MockLogger(),
     )
 

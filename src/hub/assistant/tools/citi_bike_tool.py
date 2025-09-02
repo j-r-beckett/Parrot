@@ -3,6 +3,7 @@ from pydantic import BaseModel
 from pydantic_ai import Agent
 from pydantic_ai.tools import RunContext
 from assistant.dependencies import AssistantDependencies
+from assistant.tool_wrapper import safe_tool
 from typing import List, Optional
 from integrations.citi_bike import Station
 
@@ -23,6 +24,7 @@ def register_citi_bike_tool(agent: Agent[AssistantDependencies, str]) -> None:
     """Register Citi Bike tool on the agent."""
 
     @agent.tool
+    @safe_tool
     async def find_citibike_stations(
         ctx: RunContext[AssistantDependencies], location: str
     ) -> List[CitiBikeStationResult]:

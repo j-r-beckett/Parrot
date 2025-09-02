@@ -2,6 +2,7 @@ from pydantic_ai import Agent
 from pydantic_ai.tools import RunContext
 from pydantic_ai.builtin_tools import WebSearchTool
 from assistant.dependencies import AssistantDependencies
+from assistant.tool_wrapper import safe_tool
 
 # Search-specific system prompt
 SEARCH_SYSTEM_PROMPT = """You are a web search assistant. Find accurate, current information and present it clearly.
@@ -32,6 +33,7 @@ def register_search_tool(agent: Agent[AssistantDependencies, str]) -> None:
     """Register search tool on the agent."""
 
     @agent.tool
+    @safe_tool
     async def web_search(ctx: RunContext[AssistantDependencies], query: str) -> str:
         """Search the web for information by delegating to a specialized search agent."""
         ctx.deps.logger.info(f"Search tool called with query: {query}")

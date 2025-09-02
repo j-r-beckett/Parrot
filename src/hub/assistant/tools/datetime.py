@@ -4,6 +4,7 @@ import pytz
 from pydantic_ai import Agent
 from pydantic_ai.tools import RunContext
 from assistant.dependencies import AssistantDependencies
+from assistant.tool_wrapper import safe_tool
 
 # Initialize TimezoneFinder at module level since it's expensive to create
 tf = TimezoneFinder()
@@ -13,6 +14,7 @@ def register_datetime_tool(agent: Agent[AssistantDependencies, str]) -> None:
     """Register datetime tool on the agent."""
 
     @agent.tool
+    @safe_tool
     async def get_current_datetime(
         ctx: RunContext[AssistantDependencies], location: str
     ) -> str:

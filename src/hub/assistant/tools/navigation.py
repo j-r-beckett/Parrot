@@ -2,6 +2,7 @@ from typing import Literal
 from pydantic_ai import Agent
 from pydantic_ai.tools import RunContext
 from assistant.dependencies import AssistantDependencies
+from assistant.tool_wrapper import safe_tool
 import integrations.valhalla as valhalla_client
 
 
@@ -9,6 +10,7 @@ def register_navigation_tool(agent: Agent[AssistantDependencies, str]) -> None:
     """Register navigation tool on the agent."""
 
     @agent.tool
+    @safe_tool
     async def navigate(
         ctx: RunContext[AssistantDependencies],
         start: str,
