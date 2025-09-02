@@ -58,8 +58,8 @@ class CitiBikeClient:
                 f"API version mismatch: expected {CitiBikeClient.api_version}, got {version}"
             )
 
-        self.station_status, _ = await self._update_station_status()
-        self.station_info, _ = await self._update_station_info()
+        await self._update_station_status()
+        await self._update_station_info()
 
         self.status_sync_task = asyncio.create_task(
             self._sync(self._update_station_status)
@@ -90,21 +90,18 @@ class CitiBikeClient:
 
     async def _sync(
         self,
-        updater: Callable[
-            [], Awaitable[Tuple[List[StationInfo] | List[StationStatus], datetime]]
-        ],
+        updater: Callable[[], Awaitable[timedelta]],
     ) -> None:
         while True:
             try:
-                _, next_update_time = await updater()
-                wait_for = next_update_time - datetime.now(timezone.utc)
+                wait_for = await updater()
                 # TODO: emit a log message saying we updated
                 if wait_for > timedelta():
                     await asyncio.sleep(wait_for.total_seconds())
                 else:
-                    # Next update time is in the past - something is wrong
+                    # Wait time is negative - something is wrong with TTL calculation
                     self.system_logger.error(
-                        f"Next update time is in the past by {abs(wait_for.total_seconds())} seconds"
+                        f"Wait time is negative: {wait_for.total_seconds()} seconds"
                     )
                     await asyncio.sleep(self._error_wait_seconds)
             except asyncio.CancelledError:
@@ -117,7 +114,7 @@ class CitiBikeClient:
                 except asyncio.CancelledError:
                     break
 
-    async def _update_station_info(self) -> Tuple[List[StationInfo], datetime]:
+    async def _update_station_info(self) -> timedelta:
         response = await self.httpx_client.get("/station_information.json")
         response.raise_for_status()
         data = response.json()
@@ -129,14 +126,24 @@ class CitiBikeClient:
             for station in data["data"]["stations"]
         ]
 
-        next_update_time = self._next_update_time(data["last_updated"], data["ttl"])
+        # Calculate how far behind the data is
+        last_updated_dt = datetime.fromtimestamp(
+            data["last_updated"], tz=self.timezone
+        ).astimezone(timezone.utc)
+        now = datetime.now(timezone.utc)
+        data_age = (now - last_updated_dt).total_seconds()
+        self.system_logger.info(
+            f"Updated station info. Data is {data_age:.1f} seconds old"
+        )
+
+        wait_time = timedelta(seconds=data["ttl"] / 2)
 
         async with self.info_rw_lock.w_locked():
             self.station_info = stations
 
-        return stations, next_update_time
+        return wait_time
 
-    async def _update_station_status(self) -> Tuple[List[StationStatus], datetime]:
+    async def _update_station_status(self) -> timedelta:
         response = await self.httpx_client.get("/station_status.json")
         response.raise_for_status()
         data = response.json()
@@ -161,12 +168,22 @@ class CitiBikeClient:
                 )
             )
 
-        next_update_time = self._next_update_time(data["last_updated"], data["ttl"])
+        # Calculate how far behind the data is
+        last_updated_dt = datetime.fromtimestamp(
+            data["last_updated"], tz=self.timezone
+        ).astimezone(timezone.utc)
+        now = datetime.now(timezone.utc)
+        data_age = (now - last_updated_dt).total_seconds()
+        self.system_logger.info(
+            f"Updated station status. Data is {data_age:.1f} seconds old"
+        )
+
+        wait_time = timedelta(seconds=data["ttl"] / 2)
 
         async with self.status_rw_lock.w_locked():
             self.station_status = stations
 
-        return stations, next_update_time
+        return wait_time
 
     async def get_stations(self) -> List[Station]:
         # Acquire status_rw_lock reader lock and create status dict

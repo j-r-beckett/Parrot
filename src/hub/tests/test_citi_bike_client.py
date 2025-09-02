@@ -1,6 +1,6 @@
 import pytest
 import httpx
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 import asyncio
 
 from integrations.citi_bike import CitiBikeClient, Station
@@ -305,20 +305,17 @@ async def test_update_station_info():
         client.timezone, _ = await client._get_system_info()
 
         # Test the update method directly
-        stations, next_update_time = await client._update_station_info()
+        wait_time = await client._update_station_info()
 
-        # Verify the station data
-        assert len(stations) == 1
-        assert stations[0].station_id == "test_station"
-        assert stations[0].lat == 37.7749
-        assert stations[0].lon == -122.4194
-
-        # Verify next update time calculation
-        assert isinstance(next_update_time, datetime)
-        assert next_update_time.tzinfo == timezone.utc
+        # Verify wait time calculation (should be ttl/2 = 300/2 = 150 seconds)
+        assert isinstance(wait_time, timedelta)
+        assert wait_time.total_seconds() == 150.0
 
         # Verify data was stored in client
-        assert client.station_info == stations
+        assert len(client.station_info) == 1
+        assert client.station_info[0].station_id == "test_station"
+        assert client.station_info[0].lat == 37.7749
+        assert client.station_info[0].lon == -122.4194
 
 
 @pytest.mark.asyncio
@@ -374,20 +371,17 @@ async def test_update_station_status():
         client.timezone, _ = await client._get_system_info()
 
         # Test the update method directly
-        stations, next_update_time = await client._update_station_status()
+        wait_time = await client._update_station_status()
 
-        # Verify the station data
-        assert len(stations) == 1
-        assert stations[0].station_id == "test_station"
-        assert stations[0].num_bikes == 7  # Only vehicle_type_id="1"
-        assert stations[0].num_ebikes == 4  # Only vehicle_type_id="2"
-
-        # Verify next update time calculation
-        assert isinstance(next_update_time, datetime)
-        assert next_update_time.tzinfo == timezone.utc
+        # Verify wait time calculation (should be ttl/2 = 60/2 = 30 seconds)
+        assert isinstance(wait_time, timedelta)
+        assert wait_time.total_seconds() == 30.0
 
         # Verify data was stored in client
-        assert client.station_status == stations
+        assert len(client.station_status) == 1
+        assert client.station_status[0].station_id == "test_station"
+        assert client.station_status[0].num_bikes == 7  # Only vehicle_type_id="1"
+        assert client.station_status[0].num_ebikes == 4  # Only vehicle_type_id="2"
 
 
 @pytest.mark.asyncio
